@@ -23,14 +23,6 @@ async function fetchData() {
     console.error(error)
     }
 }
-function decreaseToken(num) {
-if (num <= token.value) {
-    token.value -= num
-    console.log('token total decreased')
-} else {
-    alert("You cannot claim more tokens than your balance.")
-}
-}
 
 fetchData()
 const { publicKey, connected, sendTransaction } = useWallet();

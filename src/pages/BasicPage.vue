@@ -1,6 +1,5 @@
 <script setup>
 import SignMessage from '../components/SignMessage';
-import SendTransaction from '../components/Claimtoken';
 </script>
 
 <template>
@@ -11,7 +10,6 @@ import SendTransaction from '../components/Claimtoken';
             </h1>
             <div class="text-center">
                 <sign-message></sign-message>
-                <send-transaction></send-transaction>
             </div>
       </div>
     </div>

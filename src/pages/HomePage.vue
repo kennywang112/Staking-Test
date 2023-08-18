@@ -1,5 +1,5 @@
 <script setup>
-import InitAll from '../components/InitAll';
+import InitAll from '../components/InitAll.vue';
 import StakingTest from '../components/StakingTest.vue';
 </script>
 
