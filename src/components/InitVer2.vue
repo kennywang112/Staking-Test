@@ -8,7 +8,13 @@ import {
     Keypair, 
     clusterApiUrl 
 } from '@solana/web3.js';
-import { executeTransaction, executeTransactions, withFindOrInitAssociatedTokenAccount, fetchIdlAccountDataById } from "@cardinal/common";
+import { 
+    executeTransaction,
+    executeTransactions, 
+    withFindOrInitAssociatedTokenAccount, 
+    fetchIdlAccountDataById,
+    fetchIdlAccount
+ } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
@@ -16,7 +22,8 @@ import { NATIVE_MINT, getAssociatedTokenAddressSync, createTransferInstruction }
 import { stake, unstake, claimRewards } from "../useStaking"
 const wallet = useWallet();
 
-let stakePoolIdentifier = `author`;
+// let stakePoolIdentifier = `owner`;
+let stakePoolIdentifier = `user`;
 let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
 
 let mintId = new solana.PublicKey('Bc81yy5N2TBTKTkEPp6SniBqqDd3u6JiJqXiRMpgLQww')
@@ -31,29 +38,28 @@ wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
 wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
 
 let stakePoolId = PublicKey.findProgramAddressSync(
-        [
-        utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
-        utils.bytes.utf8.encode(stakePoolIdentifier), // ix.identifier.as_ref()
-        ],
-        REWARDS_CENTER_ADDRESS
-)[0];
-let paymentInfoId = PublicKey.findProgramAddressSync(
     [
-    utils.bytes.utf8.encode("payment-info"),
+    utils.bytes.utf8.encode('stake-pool'),
     utils.bytes.utf8.encode(stakePoolIdentifier),
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-let rewardDistributorId = PublicKey.findProgramAddressSync(
-        [
-        utils.bytes.utf8.encode("reward-distributor"),
-        stakePoolId.toBuffer(),
-        //(stakePoolIdentifier ?? new BN(0)).toArrayLike(Buffer, "le", 8),
-        new BN(0).toArrayLike(Buffer, "le", 8)
-        ],
-        REWARDS_CENTER_ADDRESS
+let paymentInfoId = PublicKey.findProgramAddressSync(
+    [
+    utils.bytes.utf8.encode("payment-info"),
+    utils.bytes.utf8.encode('client'),
+    ],
+    REWARDS_CENTER_ADDRESS
 )[0];
-let isFungible = false;
+let rewardDistributorId = PublicKey.findProgramAddressSync(
+    [
+    utils.bytes.utf8.encode("reward-distributor"),
+    stakePoolId.toBuffer(),
+    //(stakePoolIdentifier ?? new BN(0)).toArrayLike(Buffer, "le", 8),
+    new BN(0).toArrayLike(Buffer, "le", 8)
+    ],
+    REWARDS_CENTER_ADDRESS
+)[0];
 
 async function init_pool () {
 
@@ -66,7 +72,7 @@ async function init_pool () {
       allowedCollections: [],
       allowedCreators: [],
       requiresAuthorization: false,
-      authority: wallet.publicKey.value,
+      authority: wallet.publicKey,
       resetOnUnstake: false,
       cooldownSeconds: null,
       minStakeSeconds: null,
@@ -81,12 +87,13 @@ async function init_pool () {
 
     tx.add(ix);
 
-   await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
-
     console.log(tx)
+    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+
+    console.log('success')
 }
 
-async function init_payment () {//& update
+async function init_payment () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
@@ -123,8 +130,7 @@ async function init_payment () {//& update
     console.log('stake pool id :',stakePoolId.toString())
 }
 
-async function init_reward_distribution () { // & update
-
+async function init_reward_distribution () {
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
 
@@ -194,7 +200,18 @@ async function UnStake () {
 
     await executeTransactions(connection, tx, wallet);
 
-    console.log(tx)
+    //console.log(tx)
+
+    const REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
+    const provider = new anchor.AnchorProvider(connection, wallet)
+    const idl = await anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
+    const stakePaymentInfoData = await fetchIdlAccount(
+        connection,
+        new PublicKey('5vsKac5CuyHnK1A19Vs4ChvBV4PreHKKvgmACA6KyGdi'),
+        "PaymentInfo",
+        idl
+    );
+    console.log(stakePaymentInfoData)
 }
 
 

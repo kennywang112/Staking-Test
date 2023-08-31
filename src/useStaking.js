@@ -22,14 +22,22 @@ import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-toke
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";//for staking 
 import { AnchorProvider, Program } from "@project-serum/anchor";
 
+let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
+
 async function hacopayment (payer, connection, wallet) {
 
-    const REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
     const provider = new AnchorProvider(connection, wallet)
+    const paymentInfoId = PublicKey.findProgramAddressSync(
+        [
+        utils.bytes.utf8.encode("payment-info"),
+        utils.bytes.utf8.encode('owner'),
+        ],
+        REWARDS_CENTER_ADDRESS
+    )[0];
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
     const stakePaymentInfoData = await fetchIdlAccount(
         connection,
-        new PublicKey('5vsKac5CuyHnK1A19Vs4ChvBV4PreHKKvgmACA6KyGdi'),
+        paymentInfoId,
         "PaymentInfo",
         idl
     );
@@ -51,7 +59,7 @@ async function hacopayment (payer, connection, wallet) {
             isWritable: false,
         },
         {// target
-            pubkey: new PublicKey('7Tf8wc7PczAJbYgeT4J9bvNh1yNZU8JGA7tEDkejaeTb'),
+            pubkey: stakePaymentInfoData.parsed.paymentShares[0].address,
             isSigner: false,
             isWritable: true,
         }
@@ -63,7 +71,6 @@ async function hacopayment (payer, connection, wallet) {
 export const claimRewards = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, claimingRewardsForUsers) => {
 
     const provider = new AnchorProvider(connection, wallet)
-    const REWARDS_CENTER_ADDRESS = new PublicKey('AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH');
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
     const program = new Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const isFungible = false;
@@ -286,7 +293,6 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
 export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds) => {
 
     const provider = new AnchorProvider(connection, wallet)
-    const REWARDS_CENTER_ADDRESS = new PublicKey('AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH');
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
     const program = new Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const stakePoolId = PublicKey.findProgramAddressSync(
@@ -543,7 +549,6 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
 }
 
 export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) => {
-    const REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
     const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
