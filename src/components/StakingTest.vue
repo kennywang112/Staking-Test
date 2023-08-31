@@ -31,9 +31,9 @@ import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction ,
   getAccount,
-  getMint
+  getMint,
+  createTransferInstruction
 } from "@solana/spl-token";//for staking 
-import { createTransferInstruction} from "@solana/spl-token";
 const web3 = require("@solana/web3.js");
 const wallet = useWallet();
 
@@ -165,6 +165,7 @@ function withRemainingAccountsForPayment(transaction, payer, paymentMint, paymen
   }
   return remainingAccounts;
 }
+
 async function claimRewards(connection,wallet,stakePoolIdentifier,mintIds,rewardDistributorIds,claimingRewardsForUsers) {
 
   const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
@@ -358,6 +359,7 @@ async function claimRewards(connection,wallet,stakePoolIdentifier,mintIds,reward
   }
   return txs;
 }
+
 async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistributorIds) {
 
   idl = await idl
@@ -613,6 +615,7 @@ async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistr
 
   return txs;
 }
+
 async function stake(connection,wallet,stakePoolIdentifier,mintIds){
 
   idl = await idl

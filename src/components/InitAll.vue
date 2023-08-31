@@ -8,10 +8,8 @@ import { utils,BN } from "@coral-xyz/anchor";
 import { NATIVE_MINT } from "@solana/spl-token";//for staking
 const wallet = useWallet();
 
-// let stakePoolIdentifier = `TTG`; //tradingtrain
-// let REWARDS_CENTER_ADDRESS = new PublicKey("E2PSH444f3ScPpuNChXYLrv7KfcWWNdJvQKwfkaw3wM") // tradingtrain
 let stakePoolIdentifier = `fortest`;
-let REWARDS_CENTER_ADDRESS = new PublicKey("DoEMN3BFKTMQDtD2gEfw8RUskZkURZxHQo1eiQkfVSqr")
+let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
 
 let mintId = new solana.PublicKey('8vMQNxJXtG4rrqVQufS3yt8rh4ZUMw3Qe6KoyrHDLH7D')
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
@@ -27,7 +25,7 @@ let stakePoolId = PublicKey.findProgramAddressSync(
         utils.bytes.utf8.encode(stakePoolIdentifier), // ix.identifier.as_ref()
         ],
         REWARDS_CENTER_ADDRESS
-    )[0];
+)[0];
 let paymentInfoId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode("payment-info"),
@@ -51,7 +49,7 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
         new BN(0).toArrayLike(Buffer, "le", 8)
         ],
         REWARDS_CENTER_ADDRESS
-    )[0];
+)[0];
 let isFungible = false;
 
 // let distributor =await fetchIdlAccountDataById(
@@ -103,7 +101,7 @@ async function init_pool () {
 
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
-    console.log(stakePoolId)
+    console.log(tx)
 }
 async function init_payment () {//& update
 
