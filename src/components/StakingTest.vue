@@ -37,22 +37,14 @@ import {
 const web3 = require("@solana/web3.js");
 const wallet = useWallet();
 
-let REWARDS_CENTER_ADDRESS = new PublicKey("DoEMN3BFKTMQDtD2gEfw8RUskZkURZxHQo1eiQkfVSqr");
+let REWARDS_CENTER_ADDRESS = new PublicKey("7NBo7TCnHFFngwbPNtQrhF6x1SWthjdYcPbWwYakNnbQ");
+
 let METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-let stakePoolIdentifier = `fortest`;
+let stakePoolIdentifier = `1`;
 
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 
-let mintId = new solana.PublicKey('7qyA2nrzsrEi6zM5WzgFqeGkAmtwPsQddwove6rFBDSk')
-let mintId1 = new solana.PublicKey('FDfBbcwtES5JLATLH5Z8SaAM11yHXt39Wy9Lp3aE6FdX')
-let mintId2 = new solana.PublicKey('2gLkyYk9qKmjSWAt2f7bq5iPttBdUKSyjkqu3tbYv1UU')
-let mintId3 = new solana.PublicKey('CHGkT63X3jGkBDbmcKx7s6rMiLzpFWfDAW3prNu6EF51')
-let mintId4 = new solana.PublicKey('3DoVMikexhj3mpytnm1rhLZUZ41toPxNVR5Y6puYFRJp')
-let mintId5 = new solana.PublicKey('3voHGYZ2JCVuJr9VjkkQXrcma97qkwExk4AGG5FMunPr')
-let mintId6 = new solana.PublicKey('B1uvhSndwXpnNG8pe7bZ2MYxmPy9vfmsY52iuwDBMFBG')
-let mintId7 = new solana.PublicKey('hS5ZVoV5vCbgxFsBAbw84KSVQu1ftNvv2gUv8JHENjH')
-let mintId8 = new solana.PublicKey('C5rpAC6fw4oHPhuyEr7FCMtYoDh1Zdk8YBFUCyA8Qgqb')
-let mintId9 = new solana.PublicKey('7AFKpDMoCmY8JDvxHzwmngvvQv9e6Qfu79xVNBJr46Ni')
+let mintId = new solana.PublicKey('HQibTvbQqhquaDewaYxWm72Kb9tpWdp7vojky8oNDmt')
 let isFungible = false;
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -85,6 +77,8 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     REWARDS_CENTER_ADDRESS
 )[0];
 
+wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
+wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
 
 function withRemainingAccountsForPaymentInfoSync(transaction, payer, paymentInfoData) {
   const remainingAccounts = [
@@ -616,7 +610,7 @@ async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistr
   return txs;
 }
 
-async function stake(connection,wallet,stakePoolIdentifier,mintIds){
+async function stake(connection,wallet,mintIds){
 
   idl = await idl
   const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
@@ -634,7 +628,7 @@ async function stake(connection,wallet,stakePoolIdentifier,mintIds){
             ],
             REWARDS_CENTER_ADDRESS
         )[0],
-        mintTokenAccountId:getAssociatedTokenAddressSync(mintId, wallet.publicKey.value, true),
+        mintTokenAccountId: getAssociatedTokenAddressSync(mintId, wallet.publicKey, true),
       };
     }
   );
@@ -668,26 +662,26 @@ async function stake(connection,wallet,stakePoolIdentifier,mintIds){
       : undefined;
     if (!accountDataById[stakeEntryId.toString()]) {
       const ix = await program
-        .methods.initEntry(wallet.publicKey.value)
+        .methods.initEntry(wallet.publicKey)
         .accounts({
           stakeEntry: stakeEntryId,
           stakePool: stakePoolId,
           stakeMint: mintId,
           stakeMintMetadata: metadataId,
-          payer: wallet.publicKey.value,
+          payer: wallet.publicKey,
           systemProgram: SystemProgram.programId,
         })
         .instruction();
       tx.add(ix);
     }
     const userEscrowId = PublicKey.findProgramAddressSync(
-        [utils.bytes.utf8.encode("escrow"), wallet.publicKey.value.toBuffer()],
+        [utils.bytes.utf8.encode("escrow"), wallet.publicKey.toBuffer()],
         REWARDS_CENTER_ADDRESS
     )[0];
     const remainingAccounts = [
       ...withRemainingAccountsForPaymentInfoSync(
         tx,
-        wallet.publicKey.value,
+        wallet.publicKey,
         stakePaymentInfoData
       ),
     ];
@@ -720,7 +714,7 @@ async function stake(connection,wallet,stakePoolIdentifier,mintIds){
         stakeTokenRecordAccount: stakeTokenRecordAccountId,
         authorizationRules:
           metadataInfo?.programmableConfig?.ruleSet ?? METADATA_PROGRAM_ID,
-        user: wallet.publicKey.value,
+        user: wallet.publicKey,
         userEscrow: userEscrowId,
         userStakeMintTokenAccount: mintTokenAccountId,
         tokenMetadataProgram: METADATA_PROGRAM_ID,
@@ -739,9 +733,7 @@ async function stake(connection,wallet,stakePoolIdentifier,mintIds){
 }
 
 async function staking() {
-  const tx = await stake(connection,provider.wallet,stakePoolIdentifier,
-  [ {mintId:mintId},{mintId:mintId1} ]
-  )
+  const tx = await stake(connection,provider.wallet,[{mintId:mintId}])
   await executeTransactions(connection,tx,provider.wallet.wallet.value);
   console.log(tx)
 }
@@ -779,7 +771,7 @@ async function check() {
 }
 async function claim_reward () {
     
-  const tx = await claimRewards(connection,provider.wallet,stakePoolIdentifier,[{ mintId:mintId1 }],[rewardDistributorId])
+  const tx = await claimRewards(connection,provider.wallet,stakePoolIdentifier,[{ mintId:mintId }],[rewardDistributorId])
   await executeTransactions(connection,tx,provider.wallet.wallet.value);
   console.log(tx)
 
@@ -790,21 +782,21 @@ async function transfer_fund () {
 
     const userRewardMintAta = getAssociatedTokenAddressSync(
       rewardmintId,
-        wallet.publicKey.value
+      wallet.publicKey
     );
     const rewardDistributorAtaId = await withFindOrInitAssociatedTokenAccount(
         tx,
         connection,
         rewardmintId,
         rewardDistributorId,
-        wallet.publicKey.value,
+        wallet.publicKey,
         true
     );
     tx.add(
         createTransferInstruction(
         userRewardMintAta,
         rewardDistributorAtaId,
-        wallet.publicKey.value,
+        wallet.publicKey,
         //117600000*(10**6)
         10000000000
         )
@@ -832,8 +824,7 @@ async function transfer_fund () {
 async function unstaking () {
 
   const tx = await unstake(provider.connection, provider.wallet.wallet.value, stakePoolIdentifier, 
-  [ {mintId:mintId},{mintId:mintId1},{mintId:mintId2},{mintId:mintId3} ,{mintId:mintId4},
-  {mintId:mintId5} ,{mintId:mintId6},{mintId:mintId7} ,{mintId:mintId8},{mintId:mintId9} ],
+  [ {mintId:mintId} ],
   [rewardDistributorId]
   )
   await executeTransactions(connection,tx,provider.wallet.wallet.value);

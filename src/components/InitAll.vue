@@ -1,17 +1,19 @@
 <script setup>
 import { useWallet } from 'solana-wallets-vue'
 import { Transaction, PublicKey,SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, Keypair, clusterApiUrl } from '@solana/web3.js';
-import { executeTransaction, fetchIdlAccount, fetchIdlAccountDataById, findMintMetadataId} from "@cardinal/common";
+import { executeTransaction, executeTransactions, fetchIdlAccount, fetchIdlAccountDataById, findMintMetadataId} from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
 import { NATIVE_MINT } from "@solana/spl-token";//for staking
+import { stake, unstake, claimRewards } from "../useStaking"
+
 const wallet = useWallet();
 
-let stakePoolIdentifier = `fortest`;
-let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
+let stakePoolIdentifier = `1`;
+let REWARDS_CENTER_ADDRESS = new PublicKey("7NBo7TCnHFFngwbPNtQrhF6x1SWthjdYcPbWwYakNnbQ")//hidden error testing
 
-let mintId = new solana.PublicKey('8vMQNxJXtG4rrqVQufS3yt8rh4ZUMw3Qe6KoyrHDLH7D')
+let mintId = new solana.PublicKey('HQibTvbQqhquaDewaYxWm72Kb9tpWdp7vojky8oNDmt')
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -19,12 +21,15 @@ let provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
 //let program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
 
+wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
+wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
+
 let stakePoolId = PublicKey.findProgramAddressSync(
-        [
-        utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
-        utils.bytes.utf8.encode(stakePoolIdentifier), // ix.identifier.as_ref()
-        ],
-        REWARDS_CENTER_ADDRESS
+    [
+    utils.bytes.utf8.encode('stake-pool'),
+    utils.bytes.utf8.encode(stakePoolIdentifier),
+    ],
+    REWARDS_CENTER_ADDRESS
 )[0];
 let paymentInfoId = PublicKey.findProgramAddressSync(
     [
@@ -42,22 +47,22 @@ let stakeAuthorizationId = PublicKey.findProgramAddressSync(
     REWARDS_CENTER_ADDRESS
 )[0];
 let rewardDistributorId = PublicKey.findProgramAddressSync(
-        [
-        utils.bytes.utf8.encode("reward-distributor"),
-        stakePoolId.toBuffer(),
-        //(identifier ?? new BN(0)).toArrayLike(Buffer, "le", 8),
-        new BN(0).toArrayLike(Buffer, "le", 8)
-        ],
-        REWARDS_CENTER_ADDRESS
+    [
+    utils.bytes.utf8.encode("reward-distributor"),
+    stakePoolId.toBuffer(),
+    //(identifier ?? new BN(0)).toArrayLike(Buffer, "le", 8),
+    new BN(0).toArrayLike(Buffer, "le", 8)
+    ],
+    REWARDS_CENTER_ADDRESS
 )[0];
 let isFungible = false;
 
-// let distributor =await fetchIdlAccountDataById(
-//         connection,
-//         [rewardDistributorId],
-//         REWARDS_CENTER_ADDRESS,
-//         idl
-//     )
+// let distributor = await fetchIdlAccountDataById(
+//     connection,
+//     [rewardDistributorId],
+//     REWARDS_CENTER_ADDRESS,
+//     idl
+// )
 // let stakePool =await fetchIdlAccountDataById(
 //     connection,
 //     [stakePoolId],
@@ -82,7 +87,7 @@ async function init_pool () {
       allowedCollections: [],
       allowedCreators: [],
       requiresAuthorization: false,
-      authority: wallet.publicKey.value,
+      authority: new PublicKey("F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf"),
       resetOnUnstake: false,
       cooldownSeconds: null,
       minStakeSeconds: null,
@@ -92,7 +97,7 @@ async function init_pool () {
     })
     .accounts({
       stakePool: stakePoolId,
-      payer: wallet.publicKey.value,
+      payer: wallet.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .instruction();
@@ -129,32 +134,33 @@ async function init_payment () {//& update
 
     const ix = await program.methods
         .initPaymentInfo({
-            authority: wallet.publicKey.value,
+            authority: wallet.publicKey,
             identifier: stakePoolIdentifier,
             paymentAmount: new BN(200000),
             paymentMint: PublicKey.default,
             paymentShares: [
                 {
-                address: new PublicKey("2JeNLSrJkSaWoFoSQkb1YsxC1dXSaA1LTLjpakzb9SBf"),
+                address: wallet.publicKey,
                 basisPoints: 10000,
                 },
             ],
         })
         .accounts({ 
             paymentInfo: paymentInfoId, 
-            payer: wallet.publicKey.value ,
+            payer: wallet.publicKey,
             systemProgram: SystemProgram.programId})
         .instruction();
 
     tx.add(ix)
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
-    const paymntinfo =await fetchIdlAccountDataById(
+    let stakePool =await fetchIdlAccountDataById(
         connection,
-        [paymentInfoId],
+        [stakePoolId],
         REWARDS_CENTER_ADDRESS,
         idl
     )
+    console.log(tx)
     
     console.log('payment info id :',paymentInfoId.toString())
     console.log('stake pool id :',stakePoolId.toString())
@@ -186,82 +192,42 @@ async function Authorize_mint () {
     )
     console.log(pool) 
 }
-async function init_entry (){ 
-
-    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
-    const stakeEntryId = PublicKey.findProgramAddressSync(
-        [
-        utils.bytes.utf8.encode("stake-entry"),
-        stakePoolId.toBuffer(),
-        new solana.PublicKey('AD5KtBUppJ6xJijxjFA3CBZZBZFCedjB7Z4ErfGqnF1M').toBuffer(),
-        wallet.publicKey.value && isFungible ? wallet.publicKey.value.toBuffer() : PublicKey.default.toBuffer(),
-        ],
-        new PublicKey("F3pcjJWRjAAuzRQ5pECcVgV6UAb9U4qy9etA7jWtQB9f")
-    )[0];
-
-    const tx = new Transaction();
-
-    const ix = await program.methods
-        .initEntry(wallet.publicKey.value)
-        .accountsStrict({
-        stakePool: stakePoolId,
-        stakeEntry: stakeEntryId,
-        stakeMint: new solana.PublicKey('AD5KtBUppJ6xJijxjFA3CBZZBZFCedjB7Z4ErfGqnF1M'),
-        stakeMintMetadata: findMintMetadataId(new solana.PublicKey('AD5KtBUppJ6xJijxjFA3CBZZBZFCedjB7Z4ErfGqnF1M')),
-        payer: wallet.publicKey.value,
-        systemProgram: SystemProgram.programId,
-        })
-        .instruction();
-
-    tx.add(ix);
-
-    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value,{});
-
-    const entry = await fetchIdlAccountDataById(
-        connection,
-        [stakeEntryId],
-        new PublicKey("F3pcjJWRjAAuzRQ5pECcVgV6UAb9U4qy9etA7jWtQB9f"),
-        idl
-    )
-    console.log(tx)
-}
 async function update_pool () {
 
-    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
-    const tx = new Transaction();
+    const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
 
+    const tx = new Transaction();
     tx.add( 
         await program.methods
         .updatePool({
-            allowedCollections: [new PublicKey("7SJiu2jPMKddCHDBKkwR7rQrKum33GGyvoCdjEgwFVsR"),new PublicKey('2FsWDbGFDhkJZBiKV3Y18CRP4dhJegAwstBG8Yagbi24')],
+            allowedCollections: [],
             allowedCreators: [],
             requiresAuthorization: true,
-            authority: wallet.publicKey.value,
+            authority: new PublicKey("F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf"),
             resetOnUnstake: false,
             cooldownSeconds: null,
             minStakeSeconds: null,
             endDate: null,
-            stakePaymentInfo: new PublicKey('4tYqd57iLsCx7Dhi8WDRmuJhF41Gny3vuB1KzUt4BC87'),//programs/cardinal-rewards-center/src/payment/state.rs有限制
-            unstakePaymentInfo: new PublicKey('4tYqd57iLsCx7Dhi8WDRmuJhF41Gny3vuB1KzUt4BC87'),
+            // stakePaymentInfo: paymentInfoId,
+            // unstakePaymentInfo: paymentInfoId,
         })
         .accounts({
             stakePool: stakePoolId,
-            payer: wallet.publicKey.value,
-            authority: wallet.publicKey.value,
+            payer: wallet.publicKey,
+            authority: new PublicKey("F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf"),
             systemProgram: SystemProgram.programId
         }).instruction()
     );
 
-    console.log(paymentInfoId)
-
     const exec = await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
+    console.log(tx)
 }
-async function init_reward_distribution () { // & update
+async function init_reward_distribution () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
-    const tx = new Transaction();
 
+    const tx = new Transaction();
     const ix = await program.methods
     .initRewardDistributor({
       identifier: new BN(0),
@@ -277,8 +243,8 @@ async function init_reward_distribution () { // & update
       rewardDistributor: rewardDistributorId,
       stakePool: stakePoolId,
       rewardMint: rewardmintId,
-      authority: provider.wallet.publicKey.value,
-      payer: provider.wallet.publicKey.value,
+      authority: wallet.publicKey,
+      payer: wallet.publicKey,
     })
     .instruction();
 
@@ -299,10 +265,22 @@ async function init_reward_distribution () { // & update
 
     tx.add(ix);
 
-    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+    console.log(tx)
+    await executeTransaction(connection, tx, provider.wallet.wallet.value);
 
     console.log('finish')
 }
+async function UnStake () {
+
+    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
+
+    await executeTransactions(connection, tx, wallet);
+
+    console.log(tx)
+}
+
+
+
 </script>
 
 <template>
@@ -340,6 +318,13 @@ async function init_reward_distribution () { // & update
             @click="init_reward_distribution">
             <span>
                 Init reward distribution
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="UnStake">
+            <span>
+                unstake
             </span>
         </button>
 </div>

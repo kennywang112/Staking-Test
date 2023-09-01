@@ -18,13 +18,13 @@ import {
 const anchor = require('@project-serum/anchor');
 const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
-import { NATIVE_MINT, getAssociatedTokenAddressSync, createTransferInstruction } from "@solana/spl-token";
+import { NATIVE_MINT, getAssociatedTokenAddressSync, createTransferInstruction, getAccount } from "@solana/spl-token";
 import { stake, unstake, claimRewards } from "../useStaking"
 const wallet = useWallet();
 
-// let stakePoolIdentifier = `owner`;
-let stakePoolIdentifier = `user`;
-let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
+let hacoIdentifier = `TTG`;//this is for the owner
+let stakePoolIdentifier = `clt`;//this is for the client
+let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")//version2
 
 let mintId = new solana.PublicKey('Bc81yy5N2TBTKTkEPp6SniBqqDd3u6JiJqXiRMpgLQww')
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
@@ -32,7 +32,6 @@ let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbH
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
 let provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
-//let program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
 
 wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
 wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
@@ -47,7 +46,7 @@ let stakePoolId = PublicKey.findProgramAddressSync(
 let paymentInfoId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode("payment-info"),
-    utils.bytes.utf8.encode('client'),
+    utils.bytes.utf8.encode(hacoIdentifier),
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
@@ -55,24 +54,23 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode("reward-distributor"),
     stakePoolId.toBuffer(),
-    //(stakePoolIdentifier ?? new BN(0)).toArrayLike(Buffer, "le", 8),
     new BN(0).toArrayLike(Buffer, "le", 8)
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
 
-async function init_pool () {
+async function InitPool () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
+    
     const tx = new Transaction();
-
     const ix = await program.methods
     .initPool({
       identifier: stakePoolIdentifier,
       allowedCollections: [],
       allowedCreators: [],
       requiresAuthorization: false,
-      authority: wallet.publicKey,
+      authority: new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf'),
       resetOnUnstake: false,
       cooldownSeconds: null,
       minStakeSeconds: null,
@@ -93,14 +91,14 @@ async function init_pool () {
     console.log('success')
 }
 
-async function init_payment () {
+async function InitPayment () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
     const ix = await program.methods
         .initPaymentInfo({
-            authority: wallet.publicKey.value,
-            identifier: stakePoolIdentifier,
+            authority: wallet.publicKey,
+            identifier: hacoIdentifier,
             paymentAmount: new BN(200000),
             paymentMint: PublicKey.default,
             paymentShares: [
@@ -112,25 +110,19 @@ async function init_payment () {
         })
         .accounts({ 
             paymentInfo: paymentInfoId, 
-            payer: wallet.publicKey.value ,
+            payer: wallet.publicKey ,
             systemProgram: SystemProgram.programId})
         .instruction();
 
     tx.add(ix)
-    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
-
-    const paymntinfo =await fetchIdlAccountDataById(
-        connection,
-        [paymentInfoId],
-        REWARDS_CENTER_ADDRESS,
-        idl
-    )
+    //await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
     console.log('payment info id :',paymentInfoId.toString())
     console.log('stake pool id :',stakePoolId.toString())
 }
 
-async function init_reward_distribution () {
+async function InitRewardDistribution () {
+
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
 
@@ -183,6 +175,36 @@ async function init_reward_distribution () {
     console.log(tx)
 }
 
+async function UpdatePool () {
+
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+    const tx = new Transaction();
+
+    tx.add( 
+        await program.methods
+        .updatePool({
+            allowedCollections: [],
+            allowedCreators: [],
+            requiresAuthorization: true,
+            authority: wallet.publicKey.value,
+            resetOnUnstake: false,
+            cooldownSeconds: null,
+            minStakeSeconds: null,
+            endDate: null,
+        })
+        .accounts({
+            stakePool: stakePoolId,
+            payer: wallet.publicKey.value,
+            authority: wallet.publicKey.value,
+            systemProgram: SystemProgram.programId
+        }).instruction()
+    );
+
+    console.log(paymentInfoId)
+
+    const exec = await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+
+}
 
 async function Stake () {
 
@@ -214,6 +236,30 @@ async function UnStake () {
     console.log(stakePaymentInfoData)
 }
 
+async function ClosePool () {
+
+    idl = await idl// if not doing this, can't get the parsed of the pool
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+
+    const tx = new Transaction();
+    const ix = await program.methods
+    .closeStakePool()
+    .accountsStrict({
+        stakePool: stakePoolId,
+        authority: new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf')
+    })
+    .instruction()
+    tx.add(ix)
+
+    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+    const userAtaId = getAssociatedTokenAddressSync(
+        mintId,
+        new PublicKey('Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG')
+    );
+    const nft_info = await getAccount(connection, userAtaId)
+    console.log(nft_info)
+
+}
 
 </script>
 
@@ -221,28 +267,28 @@ async function UnStake () {
     <div>
         <button
             class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="init_payment">
+            @click="InitPayment">
             <span>
                 init payment
             </span>
         </button>
         <button
             class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="init_pool">
+            @click="InitPool">
             <span>
                 Init Pool
             </span>
         </button>
-        <!-- <button
+        <button
             class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="update_pool">
+            @click="UpdatePool">
             <span>
                Update pool
             </span>
-        </button> -->
+        </button>
         <button
             class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="init_reward_distribution">
+            @click="InitRewardDistribution">
             <span>
                 Init reward distribution
             </span>
@@ -259,6 +305,13 @@ async function UnStake () {
             @click="UnStake">
             <span>
                 unstake
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="ClosePool">
+            <span>
+                close pool
             </span>
         </button>
     </div>

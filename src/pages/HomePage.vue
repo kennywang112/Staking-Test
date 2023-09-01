@@ -10,15 +10,17 @@ import InitVer2 from '../components/InitVer2.vue'
             <h1 class="text-center text-5xl md:pl-12 font-bold text-transparent bg-clip-text bg-gradient-to-tr from-[#9945FF] to-[#14F195]">
           Staking Pool
         </h1>
-            <!-- <div class="text-center">
+            <!-- version1
+            <div class="text-center">
                 <init-all></init-all>
+            </div>
+            <div class="text-center">
+                <staking-test></staking-test>
             </div> -->
+            version2
             <div class="text-center">
                 <init-ver2></init-ver2>
             </div>
-            <!-- <div class="text-center">
-                <staking-test></staking-test>
-            </div> -->
       </div>
     </div>
 </template>

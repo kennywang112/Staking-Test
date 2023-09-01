@@ -22,7 +22,9 @@ import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-toke
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";//for staking 
 import { AnchorProvider, Program } from "@project-serum/anchor";
 
+let hacoIdentifier = `TTG`;//this is for the owner
 let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
+//let REWARDS_CENTER_ADDRESS = new PublicKey("7NBo7TCnHFFngwbPNtQrhF6x1SWthjdYcPbWwYakNnbQ")//hidden error testing
 
 async function hacopayment (payer, connection, wallet) {
 
@@ -30,7 +32,8 @@ async function hacopayment (payer, connection, wallet) {
     const paymentInfoId = PublicKey.findProgramAddressSync(
         [
         utils.bytes.utf8.encode("payment-info"),
-        utils.bytes.utf8.encode('owner'),
+        utils.bytes.utf8.encode(hacoIdentifier),
+        //utils.bytes.utf8.encode('1'),
         ],
         REWARDS_CENTER_ADDRESS
     )[0];
@@ -555,8 +558,8 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) =>
     const program = new Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const stakePoolId = PublicKey.findProgramAddressSync(
         [
-            utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
-            utils.bytes.utf8.encode(stakePoolIdentifier), // ix.identifier.as_ref()
+            utils.bytes.utf8.encode('stake-pool'),
+            utils.bytes.utf8.encode(stakePoolIdentifier),
         ],
         REWARDS_CENTER_ADDRESS
     )[0];
