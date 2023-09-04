@@ -23,8 +23,7 @@ import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenA
 import { AnchorProvider, Program } from "@project-serum/anchor";
 
 let hacoIdentifier = `TTG`;//this is for the owner
-let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
-//let REWARDS_CENTER_ADDRESS = new PublicKey("7NBo7TCnHFFngwbPNtQrhF6x1SWthjdYcPbWwYakNnbQ")//hidden error testing
+let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
 async function hacopayment (payer, connection, wallet) {
 

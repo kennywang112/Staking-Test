@@ -11,7 +11,7 @@ import { stake, unstake, claimRewards } from "../useStaking"
 const wallet = useWallet();
 
 let stakePoolIdentifier = `1`;
-let REWARDS_CENTER_ADDRESS = new PublicKey("7NBo7TCnHFFngwbPNtQrhF6x1SWthjdYcPbWwYakNnbQ")//hidden error testing
+let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
 let mintId = new solana.PublicKey('HQibTvbQqhquaDewaYxWm72Kb9tpWdp7vojky8oNDmt')
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
@@ -96,9 +96,10 @@ async function init_pool () {
       unstakePaymentInfo: paymentInfoId,
     })
     .accounts({
-      stakePool: stakePoolId,
-      payer: wallet.publicKey,
-      systemProgram: SystemProgram.programId,
+        owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
+        stakePool: stakePoolId,
+        payer: wallet.publicKey,
+        systemProgram: SystemProgram.programId,
     })
     .instruction();
 

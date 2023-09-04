@@ -24,9 +24,9 @@ const wallet = useWallet();
 
 let hacoIdentifier = `TTG`;//this is for the owner
 let stakePoolIdentifier = `clt`;//this is for the client
-let REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")//version2
+let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
-let mintId = new solana.PublicKey('Bc81yy5N2TBTKTkEPp6SniBqqDd3u6JiJqXiRMpgLQww')
+let mintId = new solana.PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -59,6 +59,8 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     REWARDS_CENTER_ADDRESS
 )[0];
 
+const SOL_PAYMENT_INFO = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ");//no use
+
 async function InitPool () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
@@ -66,20 +68,23 @@ async function InitPool () {
     const tx = new Transaction();
     const ix = await program.methods
     .initPool({
-      identifier: stakePoolIdentifier,
-      allowedCollections: [],
-      allowedCreators: [],
-      requiresAuthorization: false,
-      authority: new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf'),
-      resetOnUnstake: false,
-      cooldownSeconds: null,
-      minStakeSeconds: null,
-      endDate: null,
+        identifier: stakePoolIdentifier,
+        allowedCollections: [],
+        allowedCreators: [],
+        requiresAuthorization: false,
+        authority: new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf'),
+        resetOnUnstake: false,
+        cooldownSeconds: null,
+        minStakeSeconds: null,
+        endDate: null,
+        stakePaymentInfo: SOL_PAYMENT_INFO,
+        unstakePaymentInfo: SOL_PAYMENT_INFO,
     })
     .accounts({
-      stakePool: stakePoolId,
-      payer: wallet.publicKey.value,
-      systemProgram: SystemProgram.programId,
+        owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
+        stakePool: stakePoolId,
+        payer: wallet.publicKey.value,
+        systemProgram: SystemProgram.programId,
     })
     .instruction();
 
@@ -177,7 +182,7 @@ async function InitRewardDistribution () {
 
 async function UpdatePool () {
 
-    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+    const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
 
     tx.add( 
@@ -191,6 +196,8 @@ async function UpdatePool () {
             cooldownSeconds: null,
             minStakeSeconds: null,
             endDate: null,
+            stakePaymentInfo: SOL_PAYMENT_INFO,
+            unstakePaymentInfo: SOL_PAYMENT_INFO,
         })
         .accounts({
             stakePool: stakePoolId,

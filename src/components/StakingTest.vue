@@ -37,14 +37,13 @@ import {
 const web3 = require("@solana/web3.js");
 const wallet = useWallet();
 
-let REWARDS_CENTER_ADDRESS = new PublicKey("7NBo7TCnHFFngwbPNtQrhF6x1SWthjdYcPbWwYakNnbQ");
+let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ");
 
 let METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-let stakePoolIdentifier = `1`;
+let stakePoolIdentifier = `clt`;
 
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
-
-let mintId = new solana.PublicKey('HQibTvbQqhquaDewaYxWm72Kb9tpWdp7vojky8oNDmt')
+let mintId = new solana.PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
 let isFungible = false;
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -52,29 +51,29 @@ let provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
 
 let stakePoolId = PublicKey.findProgramAddressSync(
-      [
-      utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
-      utils.bytes.utf8.encode(stakePoolIdentifier), // ix.identifier.as_ref()
-      ],
-      REWARDS_CENTER_ADDRESS
-  )[0];
+  [
+  utils.bytes.utf8.encode('stake-pool'),
+  utils.bytes.utf8.encode(stakePoolIdentifier),
+  ],
+  REWARDS_CENTER_ADDRESS
+)[0];
 let stakeEntryId = PublicKey.findProgramAddressSync(
-    [
-    utils.bytes.utf8.encode("stake-entry"),
-    stakePoolId.toBuffer(),
-    mintId.toBuffer(), // 不能在還沒有設定時這樣寫
-    wallet.publicKey.value && isFungible ? wallet.publicKey.value.toBuffer() : PublicKey.default.toBuffer(),
-    ],
-    REWARDS_CENTER_ADDRESS
+  [
+  utils.bytes.utf8.encode("stake-entry"),
+  stakePoolId.toBuffer(),
+  mintId.toBuffer(), // 不能在還沒有設定時這樣寫
+  wallet.publicKey.value && isFungible ? wallet.publicKey.value.toBuffer() : PublicKey.default.toBuffer(),
+  ],
+  REWARDS_CENTER_ADDRESS
 )[0];
 let rewardDistributorId = PublicKey.findProgramAddressSync(
-    [
-    utils.bytes.utf8.encode("reward-distributor"),
-    stakePoolId.toBuffer(),
-    //(identifier ?? new BN(0)).toArrayLike(Buffer, "le", 8),
-    new BN(0).toArrayLike(Buffer, "le", 8)
-    ],
-    REWARDS_CENTER_ADDRESS
+  [
+  utils.bytes.utf8.encode("reward-distributor"),
+  stakePoolId.toBuffer(),
+  //(identifier ?? new BN(0)).toArrayLike(Buffer, "le", 8),
+  new BN(0).toArrayLike(Buffer, "le", 8)
+  ],
+  REWARDS_CENTER_ADDRESS
 )[0];
 
 wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
@@ -612,8 +611,7 @@ async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistr
 
 async function stake(connection,wallet,mintIds){
 
-  idl = await idl
-  const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+  const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
   const txs = [];
   const mints = mintIds.map(
     ({ mintId }) => {
