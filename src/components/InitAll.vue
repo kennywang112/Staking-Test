@@ -1,20 +1,19 @@
 <script setup>
 import { useWallet } from 'solana-wallets-vue'
-import { Transaction, PublicKey,SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, Keypair, clusterApiUrl } from '@solana/web3.js';
+import { Transaction, PublicKey, SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, Keypair, clusterApiUrl } from '@solana/web3.js';
 import { executeTransaction, executeTransactions, fetchIdlAccount, fetchIdlAccountDataById, findMintMetadataId} from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
-const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
 import { NATIVE_MINT } from "@solana/spl-token";//for staking
 import { stake, unstake, claimRewards } from "../useStaking"
 
 const wallet = useWallet();
 
-let stakePoolIdentifier = `1`;
-let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
+let stakePoolIdentifier = `clt`;
+let REWARDS_CENTER_ADDRESS = new PublicKey("gG9HxoFUWZtiBEJVT3kA12HR2AcwMovv4eAeuziUtHb")
 
-let mintId = new solana.PublicKey('HQibTvbQqhquaDewaYxWm72Kb9tpWdp7vojky8oNDmt')
-let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
+let mintId = new PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
+let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
 let provider = new anchor.AnchorProvider(connection, wallet)
@@ -78,7 +77,8 @@ let isFungible = false;
 
 async function init_pool () {
 
-    const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
 
     const ix = await program.methods
@@ -96,9 +96,9 @@ async function init_pool () {
       unstakePaymentInfo: paymentInfoId,
     })
     .accounts({
-        owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
         stakePool: stakePoolId,
         payer: wallet.publicKey,
+        owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
         systemProgram: SystemProgram.programId,
     })
     .instruction();
@@ -188,7 +188,7 @@ async function Authorize_mint () {
     const pool =await fetchIdlAccountDataById(
         connection,
         [stakePoolId],
-        new PublicKey("F3pcjJWRjAAuzRQ5pECcVgV6UAb9U4qy9etA7jWtQB9f"),
+        REWARDS_CENTER_ADDRESS,
         idl
     )
     console.log(pool) 
@@ -203,14 +203,14 @@ async function update_pool () {
         .updatePool({
             allowedCollections: [],
             allowedCreators: [],
-            requiresAuthorization: true,
+            requiresAuthorization: false,
             authority: new PublicKey("F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf"),
             resetOnUnstake: false,
             cooldownSeconds: null,
             minStakeSeconds: null,
             endDate: null,
-            // stakePaymentInfo: paymentInfoId,
-            // unstakePaymentInfo: paymentInfoId,
+            stakePaymentInfo: paymentInfoId,
+            unstakePaymentInfo: paymentInfoId,
         })
         .accounts({
             stakePool: stakePoolId,
@@ -244,8 +244,8 @@ async function init_reward_distribution () {
       rewardDistributor: rewardDistributorId,
       stakePool: stakePoolId,
       rewardMint: rewardmintId,
-      authority: wallet.publicKey,
-      payer: wallet.publicKey,
+      authority: wallet.publicKey.value,
+      payer: wallet.publicKey.value,
     })
     .instruction();
 
@@ -271,14 +271,14 @@ async function init_reward_distribution () {
 
     console.log('finish')
 }
-async function UnStake () {
+// async function UnStake () {
 
-    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
+//     const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
 
-    await executeTransactions(connection, tx, wallet);
+//     await executeTransactions(connection, tx, wallet);
 
-    console.log(tx)
-}
+//     console.log(tx)
+// }
 
 
 

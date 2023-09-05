@@ -13,20 +13,21 @@ import {
     executeTransactions, 
     withFindOrInitAssociatedTokenAccount, 
     fetchIdlAccountDataById,
-    fetchIdlAccount
+    fetchIdlAccount,
+    findMintMetadataId
  } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
 import { NATIVE_MINT, getAssociatedTokenAddressSync, createTransferInstruction, getAccount } from "@solana/spl-token";
-import { stake, unstake, claimRewards } from "../useStaking"
+import { stake, unstake, claimRewards, stake_spl } from "../useStaking"
 const wallet = useWallet();
 
-let hacoIdentifier = `TTG`;//this is for the owner
-let stakePoolIdentifier = `clt`;//this is for the client
+let hacoIdentifier = `TTG0905`;//this is for the owner
+let stakePoolIdentifier = `0905`;//this is for the client
 let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
-let mintId = new solana.PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
+let mintId = new solana.PublicKey('HABAjSiuCg8TCy68BGWb89ChRBxEVGs7naScQKhvByms')
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -63,7 +64,8 @@ const SOL_PAYMENT_INFO = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yR
 
 async function InitPool () {
 
-    const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     
     const tx = new Transaction();
     const ix = await program.methods
@@ -91,9 +93,15 @@ async function InitPool () {
     tx.add(ix);
 
     console.log(tx)
-    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+    // await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
-    console.log('success')
+    const stakePool =await fetchIdlAccountDataById(
+        connection,
+        [stakePoolId],
+        REWARDS_CENTER_ADDRESS,
+        idl
+    )
+    console.log(stakePool[Object.keys(stakePool)[0]])
 }
 
 async function InitPayment () {
@@ -120,7 +128,7 @@ async function InitPayment () {
         .instruction();
 
     tx.add(ix)
-    //await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
     console.log('payment info id :',paymentInfoId.toString())
     console.log('stake pool id :',stakePoolId.toString())
@@ -128,7 +136,8 @@ async function InitPayment () {
 
 async function InitRewardDistribution () {
 
-    const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
 
     const ix = await program.methods
@@ -217,7 +226,7 @@ async function Stake () {
 
     const tx = await stake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}])
 
-    await executeTransactions(connection, tx, wallet);
+    await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
     console.log(tx)
 
@@ -227,20 +236,10 @@ async function UnStake () {
 
     const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
 
-    await executeTransactions(connection, tx, wallet);
+    await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
-    //console.log(tx)
-
-    const REWARDS_CENTER_ADDRESS = new PublicKey("AqvDdGTBFCu2fQxL5GHUdW73wzLh2sEcayvVSPhujDSH")
-    const provider = new anchor.AnchorProvider(connection, wallet)
-    const idl = await anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
-    const stakePaymentInfoData = await fetchIdlAccount(
-        connection,
-        new PublicKey('5vsKac5CuyHnK1A19Vs4ChvBV4PreHKKvgmACA6KyGdi'),
-        "PaymentInfo",
-        idl
-    );
-    console.log(stakePaymentInfoData)
+    console.log(tx)
+    console.log(rewardDistributorId)
 }
 
 async function ClosePool () {
@@ -266,6 +265,65 @@ async function ClosePool () {
     const nft_info = await getAccount(connection, userAtaId)
     console.log(nft_info)
 
+}
+
+async function StakeSpl () {
+    
+    const spl = new PublicKey('8n7GxVW3ce7vTJ8BDpuiFBfuJFUEdGcNj4cW6vhDS6qk')
+    const tx = await stake_spl(connection, wallet, stakePoolIdentifier, [{mintId: spl}])
+
+    //await executeTransactions(connection, tx, wallet);
+
+    console.log(tx)
+}
+
+async function Check() {
+
+    let isFungible = false;
+    let stakeEntryId = PublicKey.findProgramAddressSync(
+        [
+        utils.bytes.utf8.encode("stake-entry"),
+        stakePoolId.toBuffer(),
+        mintId.toBuffer(), // 不能在還沒有設定時這樣寫
+        wallet.publicKey.value && isFungible ? wallet.publicKey.value.toBuffer() : PublicKey.default.toBuffer(),
+        ],
+        REWARDS_CENTER_ADDRESS
+    )[0];
+
+    idl = await idl
+
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+
+    const stakePool =await fetchIdlAccountDataById(
+        connection,
+        [stakePoolId],
+        REWARDS_CENTER_ADDRESS,
+        idl
+    )
+    const entry = await fetchIdlAccountDataById(
+        connection,
+        [stakeEntryId],
+        REWARDS_CENTER_ADDRESS,
+        idl
+    )
+    const reward =await fetchIdlAccountDataById(
+        connection,
+        [rewardDistributorId],
+        REWARDS_CENTER_ADDRESS,
+        idl
+    )
+    const bbc = getAssociatedTokenAddressSync(mintId, wallet.publicKey)
+    const ada = await getAccount(connection, bbc)
+
+    console.log('last staked at :',entry[Object.keys(entry)[0]].parsed.lastStakedAt.words[0])
+    console.log('last updated at :',entry[Object.keys(entry)[0]].parsed.lastUpdatedAt.words[0])
+    console.log("total staked second :",entry[Object.keys(entry)[0]].parsed.totalStakeSeconds.words[0])
+
+    console.log(reward[Object.keys(reward)[0]].parsed.rewardAmount.toString()/(10**5))
+
+    const metadataId = findMintMetadataId(mintId);
+
+    console.log(metadataId)
 }
 
 </script>
@@ -319,6 +377,13 @@ async function ClosePool () {
             @click="ClosePool">
             <span>
                 close pool
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="Check">
+            <span>
+                check
             </span>
         </button>
     </div>

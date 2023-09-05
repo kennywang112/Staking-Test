@@ -1,5 +1,4 @@
 <script setup>
-import { findMintManagerId } from "@cardinal/creator-standard";
 import { useWallet } from 'solana-wallets-vue'
 import { 
   Transaction,
@@ -21,29 +20,26 @@ import {
   findTokenRecordId,findAta
 } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
-const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
 import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-token-auth-rules";
 import { 
   getAssociatedTokenAddressSync,
-  getOrCreateAssociatedTokenAccount,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction ,
   getAccount,
-  getMint,
-  createTransferInstruction
-} from "@solana/spl-token";//for staking 
-const web3 = require("@solana/web3.js");
+  createTransferInstruction,
+getMint
+} from "@solana/spl-token";//for staking
 const wallet = useWallet();
 
-let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ");
+let REWARDS_CENTER_ADDRESS = new PublicKey("gG9HxoFUWZtiBEJVT3kA12HR2AcwMovv4eAeuziUtHb");
 
 let METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 let stakePoolIdentifier = `clt`;
 
-let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
-let mintId = new solana.PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
+let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
+let mintId = new PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
 let isFungible = false;
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -161,6 +157,7 @@ function withRemainingAccountsForPayment(transaction, payer, paymentMint, paymen
 
 async function claimRewards(connection,wallet,stakePoolIdentifier,mintIds,rewardDistributorIds,claimingRewardsForUsers) {
 
+  idl = await idl
   const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
 
   const txs = [];
@@ -349,6 +346,7 @@ async function claimRewards(connection,wallet,stakePoolIdentifier,mintIds,reward
       }
     }
     txs.push(tx);
+
   }
   return txs;
 }
@@ -395,7 +393,6 @@ async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistr
   let accountDataById = await fetchIdlAccountDataById(connection, [
     stakePoolId,
     ...mints.map((m) => m.rewardEntryIds ?? []).flat(),
-    ...mints.map((m) => findMintManagerId(m.mintId)),
     ...mints.map((m) => m.stakeEntryId),
   ],
   REWARDS_CENTER_ADDRESS,
@@ -540,7 +537,7 @@ async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistr
               systemProgram: SystemProgram.programId
             })
             .remainingAccounts(remainingAccountsForPayment)
-             .instruction();
+            .instruction();
           tx.add(ix);
         }
       }
@@ -557,8 +554,6 @@ async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistr
         )
       );
     }
-    const mintManagerId = findMintManagerId(mintId);
-    const mintManagerAccountInfo = accountDataById[mintManagerId.toString()];
     const metadataId = findMintMetadataId(mintId);
     const metadata = await tryNull(
       Metadata.fromAccountAddress(connection, metadataId)
@@ -610,8 +605,8 @@ async function unstake(connection,wallet,stakePoolIdentifier,mintIds,rewardDistr
 }
 
 async function stake(connection,wallet,mintIds){
-
-  const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
+  idl = await idl
+  const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
   const txs = [];
   const mints = mintIds.map(
     ({ mintId }) => {
@@ -633,7 +628,6 @@ async function stake(connection,wallet,mintIds){
   const accountDataById = await fetchIdlAccountDataById(connection, [
     stakePoolId,
     ...mints.map((m) => m.stakeEntryId),
-    ...mints.map((m) => findMintManagerId(m.mintId)),
     ...mints.map((m) => findMintMetadataId(m.mintId)),
   ],
   REWARDS_CENTER_ADDRESS,
@@ -652,8 +646,6 @@ async function stake(connection,wallet,mintIds){
   for (const { mintId, mintTokenAccountId, stakeEntryId } of mints) {
     const tx = new Transaction();
     const metadataId = findMintMetadataId(mintId);
-    const mintManagerId = findMintManagerId(mintId);
-    const mintManagerAccountInfo = accountDataById[mintManagerId.toString()];
     const metadataAccountInfo = accountDataById[metadataId.toString()];
     const metadataInfo = metadataAccountInfo
       ? Metadata.fromAccountInfo(metadataAccountInfo)[0]
@@ -723,8 +715,10 @@ async function stake(connection,wallet,mintIds){
       })
       .remainingAccounts(remainingAccounts)
       .instruction();
-    tx.add(stakeIx);   
-    txs.push(tx);
+    tx.add(stakeIx); 
+
+    txs.push(metadataAccountInfo)
+    //txs.push(tx);
   }
 
   return txs;
@@ -732,10 +726,12 @@ async function stake(connection,wallet,mintIds){
 
 async function staking() {
   const tx = await stake(connection,provider.wallet,[{mintId:mintId}])
-  await executeTransactions(connection,tx,provider.wallet.wallet.value);
+  //await executeTransactions(connection,tx,provider.wallet.wallet.value);
   console.log(tx)
 }
 async function check() {
+
+  idl = await idl
 
   const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
 
@@ -752,25 +748,31 @@ async function check() {
       idl
   )
   const reward =await fetchIdlAccountDataById(
-        connection,
-        [rewardDistributorId],
-        REWARDS_CENTER_ADDRESS,
-        idl
+      connection,
+      [rewardDistributorId],
+      REWARDS_CENTER_ADDRESS,
+      idl
     )
 
+  const stakePaymentInfoData = await fetchIdlAccount(
+    connection,
+    stakePool['7pyVpzJavCUzQZ2Aqgy4sirM1WPx5mQSuBHhuMxfS2zx'].parsed.stakePaymentInfo,
+    "PaymentInfo",
+    idl
+  );
   // console.log('last staked at :',entry[Object.keys(entry)[0]].parsed.lastStakedAt.words[0])
   // console.log('last updated at :',entry[Object.keys(entry)[0]].parsed.lastUpdatedAt.words[0])
   // console.log("total staked second :",entry[Object.keys(entry)[0]].parsed.totalStakeSeconds.words[0])
-  const userAtaId = getAssociatedTokenAddressSync(mintId, wallet.publicKey.value);
+  const userAtaId = getAssociatedTokenAddressSync(mintId, wallet.publicKey);
   const stakeTokenRecordAccountId = findTokenRecordId(mintId, userAtaId);
 
-  console.log(stakeTokenRecordAccountId)
+  console.log(stakePaymentInfoData)
 
 }
 async function claim_reward () {
     
   const tx = await claimRewards(connection,provider.wallet,stakePoolIdentifier,[{ mintId:mintId }],[rewardDistributorId])
-  await executeTransactions(connection,tx,provider.wallet.wallet.value);
+  //await executeTransactions(connection,tx,provider.wallet.wallet.value);
   console.log(tx)
 
 }
@@ -825,7 +827,7 @@ async function unstaking () {
   [ {mintId:mintId} ],
   [rewardDistributorId]
   )
-  await executeTransactions(connection,tx,provider.wallet.wallet.value);
+  //await executeTransactions(connection,tx,provider.wallet.wallet.value);
   console.log(tx)
 
 }

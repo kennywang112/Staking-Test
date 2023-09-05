@@ -1,4 +1,3 @@
-import { findMintManagerId } from "@cardinal/creator-standard";
 import {
     Transaction,
     PublicKey,
@@ -21,8 +20,14 @@ import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-token-auth-rules";
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";//for staking 
 import { AnchorProvider, Program } from "@project-serum/anchor";
+import {
+    findMintManagerId,
+    MintManager,
+    PROGRAM_ID as CREATOR_STANDARD_PROGRAM_ID,
+} from "@cardinal/creator-standard";
+import BN from "bn.js";
 
-let hacoIdentifier = `TTG`;//this is for the owner
+let hacoIdentifier = `TTG0905`;//this is for the owner
 let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
 async function hacopayment (payer, connection, wallet) {
@@ -297,6 +302,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
     const program = new Program(idl, REWARDS_CENTER_ADDRESS, provider);
+
     const stakePoolId = PublicKey.findProgramAddressSync(
         [
             utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
@@ -343,7 +349,6 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     let accountDataById = await fetchIdlAccountDataById(connection, [
         stakePoolId,
         ...mints.map((m) => m.rewardEntryIds ?? []).flat(),
-        ...mints.map((m) => findMintManagerId(m.mintId)),
         ...mints.map((m) => m.stakeEntryId),
     ],
         //需要明確指定是哪個program以及idl
@@ -363,29 +368,6 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     if (!stakePoolData?.parsed || stakePoolData.type !== "StakePool") {
         throw "Stake pool not found";
     }
-
-    const reward = await fetchIdlAccountDataById(
-        connection,
-        [rewardDistributorIds[0]],
-        REWARDS_CENTER_ADDRESS,
-        idl
-    )
-    
-    //獲取獎勵的payment
-    const claimRewardsPaymentInfoIds = rewardDistributorIds?.map((id) => {
-        const rewardDistributorData = reward[rewardDistributorIds[0]];
-        if (
-            rewardDistributorData &&
-            rewardDistributorData.type === "RewardDistributor"
-        ) {
-            return rewardDistributorData.parsed.claimRewardsPaymentInfo;
-        }
-        return null;
-    });
-
-    const distributorKey = Object.keys(distributor)[0].toString();
-    console.log(distributorKey)
-
 
     //合併所有accountData，distributor的鍵可改進成自己抓取而非硬編碼
     //accountDataById = { ...accountDataById, ...accountDataById2, ...distributor };
@@ -468,6 +450,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
 
                     }
 
+                    const metadataId = findMintMetadataId(mintId); //v2
                     const remainingAccounts = await hacopayment(wallet.publicKey, connection, wallet)
                     const ix = await program
                         .methods.claimRewards()
@@ -484,6 +467,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                             stakeEntry: stakeEntryId,
                             stakePool: stakePoolId,
                             rewardMint: rewardMint,
+                            stakeMintMetadata: metadataId,
                             userRewardMintTokenAccount: userRewardMintTokenAccount,
                             rewardDistributorTokenAccount: rewardDistributorTokenAccount,
                             user: wallet.publicKey,
@@ -587,7 +571,6 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) =>
     const accountDataById = await fetchIdlAccountDataById(connection, [
         stakePoolId,
         ...mints.map((m) => m.stakeEntryId),
-        ...mints.map((m) => findMintManagerId(m.mintId)),
         ...mints.map((m) => findMintMetadataId(m.mintId)),
     ],
         //範例沒有這兩行但這裡需要明確表示
@@ -676,6 +659,112 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) =>
             .instruction();
         tx.add(stakeIx);
         txs.push(tx);
+    }
+
+    return txs;
+}
+
+export const stake_spl = async (connection, wallet, stakePoolIdentifier, mintIds) => {
+    const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+    const provider = new AnchorProvider(connection, wallet)
+    const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
+    const program = new Program(idl, REWARDS_CENTER_ADDRESS, provider);
+    const stakePoolId = PublicKey.findProgramAddressSync(
+        [
+            utils.bytes.utf8.encode('stake-pool'),
+            utils.bytes.utf8.encode(stakePoolIdentifier),
+        ],
+        REWARDS_CENTER_ADDRESS
+    )[0];
+    const txs = [];
+
+    //建立mints包含所需資料的公鑰
+    const mints = mintIds.map(
+        ({ mintId }) => {
+            return {
+                mintId,
+                stakeEntryId: PublicKey.findProgramAddressSync(
+                    [
+                        utils.bytes.utf8.encode("stake-entry"),
+                        stakePoolId.toBuffer(),
+                        mintId.toBuffer(),
+                        PublicKey.default.toBuffer(),
+                    ],
+                    REWARDS_CENTER_ADDRESS
+                )[0],
+                mintTokenAccountId: getAssociatedTokenAddressSync(mintId, wallet.publicKey, true),
+            };
+        }
+    );
+
+    //建立accountDataById，包含上述建立mints裡id的所有資料
+    const accountDataById = await fetchIdlAccountDataById(connection, [
+        stakePoolId,
+        ...mints.map((m) => m.stakeEntryId),
+        ...mints.map((m) => findMintManagerId(m.mintId)),
+        ...mints.map((m) => findMintMetadataId(m.mintId)),
+        ],
+        //範例沒有這兩行但這裡需要明確表示
+        REWARDS_CENTER_ADDRESS,
+        idl
+    );
+
+    //判斷accountDataById裡獲取資料的內容，先是確認有池的存在
+    const stakePoolData = accountDataById[stakePoolId.toString()];
+    if (!stakePoolData?.parsed || stakePoolData.type !== "StakePool") {
+        throw "Stake pool not found";
+    }
+
+    //開始對上面mints裡的所有資料進行判斷，皆為獲取stake pnft所需要的公鑰
+    for (const { mintId, mintTokenAccountId, stakeEntryId, amount } of mints) {
+
+        const tx = new Transaction();
+        const metadataId = findMintMetadataId(mintId);
+        const mintManagerId = findMintManagerId(mintId);
+        const mintManagerAccountInfo = accountDataById[mintManagerId.toString()];
+        const metadataAccountInfo = accountDataById[metadataId.toString()];
+        const metadataInfo = metadataAccountInfo
+            ? Metadata.fromAccountInfo(metadataAccountInfo)[0]
+            : undefined;
+        const userEscrowId = PublicKey.findProgramAddressSync(
+            [
+                utils.bytes.utf8.encode("escrow"), 
+                wallet.publicKey.toBuffer()
+            ],
+            REWARDS_CENTER_ADDRESS
+          )[0];
+        const remainingAccounts = await hacopayment(wallet.publicKey, connection, wallet)
+
+        // const mintManager = MintManager.fromAccountInfo(
+        //     mintManagerAccountInfo
+        // )[0];
+        // const stakeIx = await program
+        //     .methods.stakeCcs(new BN(amount ?? 1))
+        //     .accounts({
+        //     stakePool: stakePoolId,
+        //     stakeEntry: stakeEntryId,
+        //     stakeMint: mintId,
+        //     stakeMintMetadata: metadataId,
+        //     stakeMintManager: mintManagerId,
+        //     stakeMintManagerRuleset: mintManager.ruleset,
+        //     user: wallet.publicKey,
+        //     userEscrow: userEscrowId,
+        //     userStakeMintTokenAccount: mintTokenAccountId,
+        //     creatorStandardProgram: CREATOR_STANDARD_PROGRAM_ID,
+        //     tokenProgram: TOKEN_PROGRAM_ID,
+        //     systemProgram: SystemProgram.programId,
+        //     })
+        //     .remainingAccounts(remainingAccounts)
+        //     .instruction();
+        // tx.add(stakeIx);
+        // txs.push(tx)
+        const ads = await fetchIdlAccountDataById(
+            connection, 
+            [mintManagerId],
+            REWARDS_CENTER_ADDRESS,
+            idl
+        );
+        txs.push(ads)
     }
 
     return txs;
