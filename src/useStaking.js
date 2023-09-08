@@ -235,7 +235,7 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
                     }
 
                     //remainingAccounts會需要使用到payment，這裡近行全部操作
-                    const remainingAccountsForPayment = [];
+                    // const remainingAccountsForPayment = [];
                     // const paymentInfoId = PublicKey.findProgramAddressSync(
                     //     [
                     //         utils.bytes.utf8.encode("payment-info"),
@@ -310,7 +310,14 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
         ],
         REWARDS_CENTER_ADDRESS
     )[0];
-    
+    const collectionMulId = PublicKey.findProgramAddressSync(
+        [
+            utils.bytes.utf8.encode('collection-mul'),
+            utils.bytes.utf8.encode(stakePoolIdentifier),
+        ],
+        REWARDS_CENTER_ADDRESS
+    )[0];
+
     const txs = [];
 
     //同上claimreward函數內容mints的建立方式
@@ -468,6 +475,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                             stakePool: stakePoolId,
                             rewardMint: rewardMint,
                             stakeMintMetadata: metadataId,
+                            collectionMul: collectionMulId,
                             userRewardMintTokenAccount: userRewardMintTokenAccount,
                             rewardDistributorTokenAccount: rewardDistributorTokenAccount,
                             user: wallet.publicKey,

@@ -19,20 +19,23 @@ import {
 const anchor = require('@project-serum/anchor');
 const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
-import { NATIVE_MINT, getAssociatedTokenAddressSync, createTransferInstruction, getAccount } from "@solana/spl-token";
+import { NATIVE_MINT, getAssociatedTokenAddressSync, createTransferInstruction, getAccount, getMint } from "@solana/spl-token";
 import { stake, unstake, claimRewards, stake_spl } from "../useStaking"
 const wallet = useWallet();
 
 let hacoIdentifier = `TTG0905`;//this is for the owner
-let stakePoolIdentifier = `0905`;//this is for the client
+let stakePoolIdentifier = `fourf`;//this is for the client
 let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
-let mintId = new solana.PublicKey('HABAjSiuCg8TCy68BGWb89ChRBxEVGs7naScQKhvByms')
+let mintId = new solana.PublicKey('ceKXPgojt2vmPcrUPtyfJwCZoTPzH7YLjL8XoMcmz9b')
 let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
+let col_1 = new PublicKey('8E8BHMvZiKq7q9xn1dw8rbZr7Vf2uPUdshaNU5mmFeZ8')
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
 let provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
+
+let authority = new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf')
 
 wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
 wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
@@ -56,6 +59,13 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     utils.bytes.utf8.encode("reward-distributor"),
     stakePoolId.toBuffer(),
     new BN(0).toArrayLike(Buffer, "le", 8)
+    ],
+    REWARDS_CENTER_ADDRESS
+)[0];
+let collectionMulId = PublicKey.findProgramAddressSync(
+    [
+        utils.bytes.utf8.encode('collection-mul'),
+        utils.bytes.utf8.encode(stakePoolIdentifier),
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
@@ -93,7 +103,7 @@ async function InitPool () {
     tx.add(ix);
 
     console.log(tx)
-    // await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
     const stakePool =await fetchIdlAccountDataById(
         connection,
@@ -102,6 +112,60 @@ async function InitPool () {
         idl
     )
     console.log(stakePool[Object.keys(stakePool)[0]])
+}
+
+async function InitCollectionMul () {
+
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+    const tx = new Transaction();
+    const ix = await program.methods
+    .initCollectionMul({
+        collectionsMultiply: [col_1],
+        multiplyAmount: [15],
+        multiplyProb: [5],
+        identifier: stakePoolIdentifier,
+        authority: authority
+    })
+    .accounts({
+        collectionMul: collectionMulId,
+        stakePool: stakePoolId,
+        payer: authority,
+        systemProgram: SystemProgram.programId,
+    })
+    .instruction(collectionMulId);
+
+    tx.add(ix)
+    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value)
+
+    console.log(collectionMulId)
+}
+
+async function UpdateCollectionMul () {
+
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+    const tx = new Transaction();
+    const ix = await program.methods
+    .updateCollectionMul({
+        collectionsMultiply:[col_1],
+        multiplyAmount:[18],
+        multiplyProb: [5],
+        identifier: stakePoolIdentifier,
+        authority: authority
+    })
+    .accounts({
+        authority: wallet.publicKey,
+        collectionMul: collectionMulId,
+        stakePool: stakePoolId,
+        payer: provider.wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+
+    tx.add(ix)
+    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value)
+    console.log(ix)
 }
 
 async function InitPayment () {
@@ -239,7 +303,6 @@ async function UnStake () {
     await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
     console.log(tx)
-    console.log(rewardDistributorId)
 }
 
 async function ClosePool () {
@@ -267,16 +330,6 @@ async function ClosePool () {
 
 }
 
-async function StakeSpl () {
-    
-    const spl = new PublicKey('8n7GxVW3ce7vTJ8BDpuiFBfuJFUEdGcNj4cW6vhDS6qk')
-    const tx = await stake_spl(connection, wallet, stakePoolIdentifier, [{mintId: spl}])
-
-    //await executeTransactions(connection, tx, wallet);
-
-    console.log(tx)
-}
-
 async function Check() {
 
     let isFungible = false;
@@ -284,7 +337,7 @@ async function Check() {
         [
         utils.bytes.utf8.encode("stake-entry"),
         stakePoolId.toBuffer(),
-        mintId.toBuffer(), // 不能在還沒有設定時這樣寫
+        mintId.toBuffer(),
         wallet.publicKey.value && isFungible ? wallet.publicKey.value.toBuffer() : PublicKey.default.toBuffer(),
         ],
         REWARDS_CENTER_ADDRESS
@@ -312,19 +365,18 @@ async function Check() {
         REWARDS_CENTER_ADDRESS,
         idl
     )
-    const bbc = getAssociatedTokenAddressSync(mintId, wallet.publicKey)
-    const ada = await getAccount(connection, bbc)
 
     console.log('last staked at :',entry[Object.keys(entry)[0]].parsed.lastStakedAt.words[0])
     console.log('last updated at :',entry[Object.keys(entry)[0]].parsed.lastUpdatedAt.words[0])
     console.log("total staked second :",entry[Object.keys(entry)[0]].parsed.totalStakeSeconds.words[0])
 
-    console.log(reward[Object.keys(reward)[0]].parsed.rewardAmount.toString()/(10**5))
+    console.log(reward[Object.keys(reward)[0]].parsed.rewardAmount.toString()/(10**6))
 
     const metadataId = findMintMetadataId(mintId);
 
-    console.log(metadataId)
+    console.log(reward)
 }
+
 
 </script>
 
@@ -342,6 +394,20 @@ async function Check() {
             @click="InitPool">
             <span>
                 Init Pool
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="InitCollectionMul">
+            <span>
+                Init Collection Mul
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="UpdateCollectionMul">
+            <span>
+                Update Collection Mul
             </span>
         </button>
         <button
