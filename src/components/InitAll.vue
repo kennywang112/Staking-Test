@@ -1,11 +1,9 @@
 <script setup>
 import { useWallet } from 'solana-wallets-vue'
-import { Transaction, PublicKey, SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, Keypair, clusterApiUrl } from '@solana/web3.js';
-import { executeTransaction, executeTransactions, fetchIdlAccount, fetchIdlAccountDataById, findMintMetadataId} from "@cardinal/common";
+import { Transaction, PublicKey, SystemProgram, clusterApiUrl } from '@solana/web3.js';
+import { executeTransaction, fetchIdlAccountDataById } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 import { utils,BN } from "@coral-xyz/anchor";
-import { NATIVE_MINT } from "@solana/spl-token";//for staking
-import { stake, unstake, claimRewards } from "../useStaking"
 
 const wallet = useWallet();
 
@@ -249,20 +247,20 @@ async function init_reward_distribution () {
     })
     .instruction();
 
-//     const ix = await program.methods
-//     .updateRewardDistributor({
-//       rewardAmount: new BN(1000),//
-//       rewardDurationSeconds: new BN(1),//
-//       defaultMultiplier: new BN(1),//
-//       multiplierDecimals: 0,//
-//       maxRewardSecondsReceived: null,
-//       claimRewardsPaymentInfo: new PublicKey("4tYqd57iLsCx7Dhi8WDRmuJhF41Gny3vuB1KzUt4BC87"),//
-//     })
-//     .accounts({
-//       rewardDistributor: rewardDistributorId,
-//       authority: provider.wallet.publicKey.value,
-//     })
-//     .instruction();
+    // const ix = await program.methods
+    // .updateRewardDistributor({
+    //   rewardAmount: new BN(1000),//
+    //   rewardDurationSeconds: new BN(1),//
+    //   defaultMultiplier: new BN(1),//
+    //   multiplierDecimals: 0,//
+    //   maxRewardSecondsReceived: null,
+    //   claimRewardsPaymentInfo: new PublicKey("4tYqd57iLsCx7Dhi8WDRmuJhF41Gny3vuB1KzUt4BC87"),//
+    // })
+    // .accounts({
+    //   rewardDistributor: rewardDistributorId,
+    //   authority: provider.wallet.publicKey.value,
+    // })
+    // .instruction();
 
     tx.add(ix);
 
@@ -271,14 +269,6 @@ async function init_reward_distribution () {
 
     console.log('finish')
 }
-// async function UnStake () {
-
-//     const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
-
-//     await executeTransactions(connection, tx, wallet);
-
-//     console.log(tx)
-// }
 
 
 

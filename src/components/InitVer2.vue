@@ -3,9 +3,7 @@ import { useWallet } from 'solana-wallets-vue'
 import { 
     Transaction, 
     PublicKey,
-    SystemProgram, 
-    SYSVAR_INSTRUCTIONS_PUBKEY,
-    Keypair, 
+    SystemProgram,
     clusterApiUrl 
 } from '@solana/web3.js';
 import { 
@@ -13,23 +11,24 @@ import {
     executeTransactions, 
     withFindOrInitAssociatedTokenAccount, 
     fetchIdlAccountDataById,
-    fetchIdlAccount,
     findMintMetadataId
  } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
-const solana = require('@solana/web3.js');
 import { utils,BN } from "@coral-xyz/anchor";
-import { NATIVE_MINT, getAssociatedTokenAddressSync, createTransferInstruction, getAccount, getMint } from "@solana/spl-token";
-import { stake, unstake, claimRewards, stake_spl } from "../useStaking"
+import { getAssociatedTokenAddressSync, createTransferInstruction, getAccount, getMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
+import { stake, unstake } from "../useStaking"
+import { Metaplex } from '@metaplex-foundation/js';
+import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 const wallet = useWallet();
 
 let hacoIdentifier = `TTG0905`;//this is for the owner
-let stakePoolIdentifier = `fourf`;//this is for the client
+let stakePoolIdentifier = `fourfour`;//this is for the client
 let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
-let mintId = new solana.PublicKey('ceKXPgojt2vmPcrUPtyfJwCZoTPzH7YLjL8XoMcmz9b')
-let rewardmintId = new solana.PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
+let mintId = new PublicKey('ARuovD2o6b1BKGvhDKiQorYUf2koA6DEZj1xrZ6gGBFb')
+let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 let col_1 = new PublicKey('8E8BHMvZiKq7q9xn1dw8rbZr7Vf2uPUdshaNU5mmFeZ8')
+let col_2 = new PublicKey('GWqTyimCmP7oFSP2uzxfAGWoCkv38sKPF6jkYEiFqJBz')
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
 let provider = new anchor.AnchorProvider(connection, wallet)
@@ -65,6 +64,13 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
 let collectionMulId = PublicKey.findProgramAddressSync(
     [
         utils.bytes.utf8.encode('collection-mul'),
+        utils.bytes.utf8.encode(stakePoolIdentifier),
+    ],
+    REWARDS_CENTER_ADDRESS
+)[0];
+let attributeMulId = PublicKey.findProgramAddressSync(
+    [
+        utils.bytes.utf8.encode('attribute-mul'),
         utils.bytes.utf8.encode(stakePoolIdentifier),
     ],
     REWARDS_CENTER_ADDRESS
@@ -113,7 +119,6 @@ async function InitPool () {
     )
     console.log(stakePool[Object.keys(stakePool)[0]])
 }
-
 async function InitCollectionMul () {
 
     idl = await idl
@@ -122,8 +127,9 @@ async function InitCollectionMul () {
     const ix = await program.methods
     .initCollectionMul({
         collectionsMultiply: [col_1],
-        multiplyAmount: [15],
-        multiplyProb: [5],
+        multiplyData: [
+            [1.5, 5],
+        ],
         identifier: stakePoolIdentifier,
         authority: authority
     })
@@ -140,34 +146,32 @@ async function InitCollectionMul () {
 
     console.log(collectionMulId)
 }
-
-async function UpdateCollectionMul () {
+async function InitAttributeMul () {
 
     idl = await idl
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
     const ix = await program.methods
-    .updateCollectionMul({
-        collectionsMultiply:[col_1],
-        multiplyAmount:[18],
-        multiplyProb: [5],
-        identifier: stakePoolIdentifier,
-        authority: authority
+    .initAttributeMul({
+      attributeMultiply: [['time horizon', 'WANTED']],
+      multiplyData: [
+        [16, 5],
+      ],
+      identifier: stakePoolIdentifier,
+      authority: provider.wallet.publicKey
     })
     .accounts({
-        authority: wallet.publicKey,
-        collectionMul: collectionMulId,
-        stakePool: stakePoolId,
-        payer: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
+      attributeMul: attributeMulId,
+      stakePool: stakePoolId,
+      payer: provider.wallet.publicKey,
+      systemProgram: SystemProgram.programId,
     })
-    .instruction();
+    .instruction(collectionMulId);
 
     tx.add(ix)
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value)
-    console.log(ix)
+    console.log(tx)
 }
-
 async function InitPayment () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
@@ -197,7 +201,6 @@ async function InitPayment () {
     console.log('payment info id :',paymentInfoId.toString())
     console.log('stake pool id :',stakePoolId.toString())
 }
-
 async function InitRewardDistribution () {
 
     idl = await idl
@@ -218,8 +221,8 @@ async function InitRewardDistribution () {
       rewardDistributor: rewardDistributorId,
       stakePool: stakePoolId,
       rewardMint: rewardmintId,
-      authority: wallet.publicKey,
-      payer: wallet.publicKey,
+      authority: provider.wallet.publicKey,
+      payer: provider.wallet.publicKey,
     })
     .instruction();
 
@@ -253,6 +256,34 @@ async function InitRewardDistribution () {
     console.log(tx)
 }
 
+async function UpdateCollectionMul () {
+
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+    const tx = new Transaction();
+    const ix = await program.methods
+    .updateCollectionMul({
+        collectionsMultiply:[col_1, col_2],
+        multiplyData: [
+            [18, 3],
+            [15, 6]
+        ],
+        identifier: stakePoolIdentifier,
+        authority: authority
+    })
+    .accounts({
+        authority: provider.wallet.publicKey,
+        collectionMul: collectionMulId,
+        stakePool: stakePoolId,
+        payer: wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+
+    tx.add(ix)
+    await executeTransaction(connection, tx, provider.wallet.wallet.value)
+    console.log(ix)
+}
 async function UpdatePool () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
@@ -288,17 +319,23 @@ async function UpdatePool () {
 
 async function Stake () {
 
-    const tx = await stake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}])
+    const metaplex = Metaplex.make(connection);
+    const nftmetadata = await metaplex.nfts().findByMint({mintAddress: mintId})
+    const attribute = nftmetadata.json?.attributes.map(item => [item.trait_type, item.value]);
 
+    const tx = await stake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}], [attribute])
     await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
-    console.log(tx)
+    console.log(attribute)
 
 }
-
 async function UnStake () {
 
-    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
+    const metaplex = Metaplex.make(connection);
+    const nftmetadata = await metaplex.nfts().findByMint({mintAddress: mintId})
+    const attribute = nftmetadata.json?.attributes.map(item => [item.trait_type, item.value]);
+
+    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId], attributeMulId)
 
     await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
@@ -329,7 +366,6 @@ async function ClosePool () {
     console.log(nft_info)
 
 }
-
 async function Check() {
 
     let isFungible = false;
@@ -376,7 +412,22 @@ async function Check() {
 
     console.log(reward)
 }
+async function CC() {
 
+    const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+
+    const metaplex = Metaplex.make(connection);
+    const nftmetadata = await metaplex.nfts().findByMint({mintAddress: mintId})
+
+    console.log(nftmetadata)
+
+    const metadataPda = metaplex.nfts().pdas().metadata({ mint: mintId });
+    
+    console.log(metadataPda)
+    const ata = getAssociatedTokenAddressSync(mintId, wallet.publicKey)
+    const meta = await getAccount(connection, ata)
+    console.log(meta)
+}
 
 </script>
 
@@ -400,7 +451,14 @@ async function Check() {
             class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
             @click="InitCollectionMul">
             <span>
-                Init Collection Mul
+                Init Collection
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="InitAttributeMul">
+            <span>
+                Init Attribute
             </span>
         </button>
         <button
@@ -450,6 +508,13 @@ async function Check() {
             @click="Check">
             <span>
                 check
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="CC">
+            <span>
+                check metadata
             </span>
         </button>
     </div>

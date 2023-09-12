@@ -297,7 +297,7 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
     return txs;
 }
 
-export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds) => {
+export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, attr) => {
 
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
@@ -380,6 +380,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     //accountDataById = { ...accountDataById, ...accountDataById2, ...distributor };
     accountDataById = { ...accountDataById, ...distributor };
     for (const { mintId, stakeEntryId, rewardEntryIds } of mints) {
+        let metadataId = findMintMetadataId(mintId); //v2
 
         const tx = new Transaction();
         const userEscrowId = PublicKey.findProgramAddressSync(
@@ -400,6 +401,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                 stakeEntry.parsed.cooldownStartSeconds
             )
         ) {
+
             //新增stake總時長
             const ix = await program
                 .methods.updateTotalStakeSeconds()
@@ -456,8 +458,6 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                         tx.add(ix);
 
                     }
-
-                    const metadataId = findMintMetadataId(mintId); //v2
                     const remainingAccounts = await hacopayment(wallet.publicKey, connection, wallet)
                     const ix = await program
                         .methods.claimRewards()
@@ -478,6 +478,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                             collectionMul: collectionMulId,
                             userRewardMintTokenAccount: userRewardMintTokenAccount,
                             rewardDistributorTokenAccount: rewardDistributorTokenAccount,
+                            attributeMul: attr,
                             user: wallet.publicKey,
                             tokenProgram: TOKEN_PROGRAM_ID,
                             systemProgram: SystemProgram.programId
@@ -491,7 +492,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
 
         const remainingAccounts = await hacopayment(wallet.publicKey, connection, wallet)
         
-        const metadataId = findMintMetadataId(mintId);
+        // const metadataId = findMintMetadataId(mintId);
         const metadata = await tryNull(
             Metadata.fromAccountAddress(connection, metadataId)
         );
@@ -542,7 +543,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     return txs;
 }
 
-export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) => {
+export const stake = async (connection, wallet, stakePoolIdentifier, mintIds, attr) => {
     const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
@@ -606,7 +607,10 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) =>
         if (!accountDataById[stakeEntryId.toString()]) {
 
             const ix = await program
-                .methods.initEntry(wallet.publicKey)
+                .methods.initEntry({
+                    attribute: attr,
+                    user: wallet.publicKey
+                })
                 .accounts({
                     stakeEntry: stakeEntryId,
                     stakePool: stakePoolId,

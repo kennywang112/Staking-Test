@@ -12,6 +12,7 @@
     "@cardinal/creator-standard": "^3.0.2",
     "@coral-xyz/anchor": "^0.27.0",
     "@metaplex-foundation/js": "^0.19.4",
+    "@metaplex-foundation/mpl-token-metadata": "^2.13.0",
     "@metaplex-foundation/umi-signer-wallet-adapters": "^0.7.7",
     "@project-serum/anchor": "^0.26.0",
     "@solana/spl-token": "^0.3.7",
