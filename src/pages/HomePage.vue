@@ -2,6 +2,7 @@
 import InitAll from '../components/InitAll.vue';
 import StakingTest from '../components/StakingTest.vue';
 import InitVer2 from '../components/InitVer2.vue'
+import InitTtg from '../components/InitTTG.vue'
 </script>
 
 <template>
@@ -17,10 +18,14 @@ import InitVer2 from '../components/InitVer2.vue'
             <div class="text-center">
                 <staking-test></staking-test>
             </div> -->
-            version2
+            origin
+            <div class="text-center">
+                <init-ttg></init-ttg>
+            </div>
+            <!-- version2
             <div class="text-center">
                 <init-ver2></init-ver2>
-            </div>
+            </div> -->
       </div>
     </div>
 </template>

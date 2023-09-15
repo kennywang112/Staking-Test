@@ -29,7 +29,6 @@ import {
   createAssociatedTokenAccountIdempotentInstruction ,
   getAccount,
   createTransferInstruction,
-getMint
 } from "@solana/spl-token";//for staking
 const wallet = useWallet();
 
