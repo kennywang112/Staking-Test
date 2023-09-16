@@ -11,7 +11,8 @@ import {
     executeTransactions, 
     withFindOrInitAssociatedTokenAccount, 
     fetchIdlAccountDataById,
-    findMintMetadataId
+    findMintMetadataId,
+    chunkArray
  } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 import { utils,BN } from "@coral-xyz/anchor";

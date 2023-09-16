@@ -3,6 +3,7 @@ import InitAll from '../components/InitAll.vue';
 import StakingTest from '../components/StakingTest.vue';
 import InitVer2 from '../components/InitVer2.vue'
 import InitTtg from '../components/InitTTG.vue'
+import FullPool from '../components/FullPool.vue'
 </script>
 
 <template>
@@ -22,9 +23,13 @@ import InitTtg from '../components/InitTTG.vue'
             <div class="text-center">
                 <init-ttg></init-ttg>
             </div> -->
-            version2
+            <!-- version2
             <div class="text-center">
                 <init-ver2></init-ver2>
+            </div> -->
+            version2
+            <div class="text-center">
+                <full-pool></full-pool>
             </div>
       </div>
     </div>

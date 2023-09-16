@@ -270,8 +270,6 @@ async function init_reward_distribution () {
     console.log('finish')
 }
 
-
-
 </script>
 
 <template>
