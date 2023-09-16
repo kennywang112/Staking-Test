@@ -369,19 +369,5 @@ async function StakeWithAuth () {
                 close pool
             </span>
         </button>
-        <button
-            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="Check">
-            <span>
-                check
-            </span>
-        </button>
-        <button
-            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="CC">
-            <span>
-                check metadata
-            </span>
-        </button>
     </div>
 </template>
