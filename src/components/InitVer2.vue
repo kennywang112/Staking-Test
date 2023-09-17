@@ -23,7 +23,7 @@ import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 const wallet = useWallet();
 
 let hacoIdentifier = `TTG0905`;//this is for the owner
-let stakePoolIdentifier = `fdivefivae`;//this is for the client
+let stakePoolIdentifier = `abc`;//this is for the client
 let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
 let mintId = new PublicKey('ARuovD2o6b1BKGvhDKiQorYUf2koA6DEZj1xrZ6gGBFb')

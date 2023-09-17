@@ -23,10 +23,10 @@ import FullPool from '../components/FullPool.vue'
             <div class="text-center">
                 <init-ttg></init-ttg>
             </div> -->
-            <!-- version2
+            version2
             <div class="text-center">
                 <init-ver2></init-ver2>
-            </div> -->
+            </div>
             version2
             <div class="text-center">
                 <full-pool></full-pool>

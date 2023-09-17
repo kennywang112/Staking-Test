@@ -22,7 +22,7 @@ const wallet = useWallet();
 wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
 wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
 
-let stakePoolIdentifier = `fdivefivae`;//this is for the client
+let stakePoolIdentifier = `abc`;//this is for the client
 let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -338,9 +338,64 @@ async function CheckConfig() {
         config_program,
         IDL
     )
-    console.log(configdata)
+    console.log(configdata[Object.keys(configdata)[0]].parsed.value)
+}
+async function CheckPool() {
+
+    idl = await idl;
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+
+    const pooldata =await fetchIdlAccountDataById(
+        connection,
+        [stakePoolId],
+        REWARDS_CENTER_ADDRESS,
+        idl
+    )
+
+    const stakeEntries = await program.account.stakeEntry.all([
+          {
+            memcmp: {
+              offset: 10,
+              bytes: stakePoolId.toString(),
+            },
+          },
+        ])
+    const filtered_entries = stakeEntries.filter(
+        (entry) =>
+            entry.account.lastStaker.toString() !==
+            PublicKey.default.toString()
+        )
+        .map((e) => {
+        return { pubkey: e.publicKey, parsed: e.account }
+        })
+    
+    const download = await downloadSnapshot(filtered_entries)
+    console.log(download)
 }
 
+async function downloadSnapshot(data) {
+    let body = `Total Staked Tokens,${
+      data.length
+    }\nSnapshot Timestamp,${Math.floor(
+      Date.now() / 1000
+    )}\n\nMint Address,Staker Address,Total Stake Seconds,Last Staked At,\n`
+    data.forEach((data) => {
+      body += `${data.parsed.stakeMint.toString()},${data.parsed.lastStaker.toString()},${data.parsed.totalStakeSeconds.toString()},${data.parsed.lastStakedAt.toString()}\n`
+    })
+    const element = document.createElement('a')
+    element.setAttribute(
+      'href',
+      'data:text/plain;charset=utf-8,' + encodeURIComponent(body)
+    )
+    element.setAttribute('download', 'snapshot.csv')
+
+    element.style.display = 'none'
+    document.body.appendChild(element)
+
+    element.click()
+
+    document.body.removeChild(element)
+}
 </script>
 
 <template>
@@ -357,6 +412,13 @@ async function CheckConfig() {
             @click="CheckConfig">
             <span>
                 check config
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="CheckPool">
+            <span>
+                check pool
             </span>
         </button>
     </div>
