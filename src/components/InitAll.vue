@@ -7,8 +7,8 @@ import { utils,BN } from "@coral-xyz/anchor";
 
 const wallet = useWallet();
 
-let stakePoolIdentifier = `clt`;
-let REWARDS_CENTER_ADDRESS = new PublicKey("gG9HxoFUWZtiBEJVT3kA12HR2AcwMovv4eAeuziUtHb")
+let stakePoolIdentifier = `2`;
+let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
 
 let mintId = new PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
 let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
@@ -52,6 +52,13 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
+let discountId = PublicKey.findProgramAddressSync(
+    [
+        utils.bytes.utf8.encode("discount-prefix"),
+        utils.bytes.utf8.encode(stakePoolIdentifier),
+    ],
+    REWARDS_CENTER_ADDRESS
+)[0];
 let isFungible = false;
 
 // let distributor = await fetchIdlAccountDataById(
@@ -74,10 +81,33 @@ let isFungible = false;
 // )
 
 async function init_pool () {
+    
 
     idl = await idl
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
+
+    const discount = await program.methods
+        .initDiscount({
+            discountStr: 'discounts',
+            authority: provider.wallet.publicKey.value,
+            identifier: stakePoolIdentifier
+        })
+        .accounts({
+            discountData: discountId,
+            payer: provider.wallet.publicKey.value,
+            systemProgram: SystemProgram.programId,
+        })
+        .instruction();
+    tx.add(discount);
+
+    const remain = [
+        {
+          pubkey: discountId,
+          isSigner: false,
+          isWritable: false,
+        },
+    ]
 
     const ix = await program.methods
     .initPool({
@@ -99,6 +129,7 @@ async function init_pool () {
         owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
         systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(remain)
     .instruction();
 
     tx.add(ix);

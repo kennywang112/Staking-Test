@@ -28,8 +28,8 @@ import {
 import BN from "bn.js";
 
 let hacoIdentifier = `TTGG`;//this is for the owner
-let REWARDS_CENTER_ADDRESS = new PublicKey("648a7xE2sSERhxeXWKtnptDA1cJT2dUAgq9sJ558en9q")
-
+let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g");
+const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 async function hacopayment (payer, connection, wallet) {
 
     const provider = new AnchorProvider(connection, wallet)
@@ -193,8 +193,12 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
                         true,
                     );
                     const stakeEntryDataInfo = accountDataById[stakeEntryId.toString()];
+                    // const userRewardMintTokenAccountOwnerId = stakeEntryDataInfo
+                    //     ? decodeIdlAccount(stakeEntryDataInfo, "stakeEntry").parsed
+                    //         .lastStaker
+                    //     : wallet.publicKey;
                     const userRewardMintTokenAccountOwnerId = stakeEntryDataInfo
-                        ? decodeIdlAccount(stakeEntryDataInfo, "stakeEntry").parsed
+                        ? stakeEntryDataInfo.parsed
                             .lastStaker
                         : wallet.publicKey;
 
@@ -532,8 +536,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     return txs;
 }
 
-export const stake = async (connection, wallet, stakePoolIdentifier, mintIds, attr) => {
-    const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) => {
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
     const program = new Program(idl, REWARDS_CENTER_ADDRESS, provider);

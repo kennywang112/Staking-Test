@@ -18,7 +18,7 @@ import {
 import { utils } from "@coral-xyz/anchor";
 import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-token-auth-rules";
-import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";//for staking 
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";//for staking 
 import { AnchorProvider, Program } from "@project-serum/anchor";
 import {
     findMintManagerId,
@@ -194,11 +194,17 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
                         true,
                     );
                     const stakeEntryDataInfo = accountDataById[stakeEntryId.toString()];
+                    console.log('stakeinfo:',stakeEntryDataInfo)
+                    // const userRewardMintTokenAccountOwnerId = stakeEntryDataInfo
+                    //     ? decodeIdlAccount(stakeEntryDataInfo, "StakeEntry").parsed
+                    //         .lastStaker
+                    //     : wallet.publicKey;
+                    console.log(stakeEntryDataInfo)
                     const userRewardMintTokenAccountOwnerId = stakeEntryDataInfo
-                        ? decodeIdlAccount(stakeEntryDataInfo, "stakeEntry").parsed
+                        ? stakeEntryDataInfo.parsed
                             .lastStaker
                         : wallet.publicKey;
-
+                    
                     const userRewardMintTokenAccount = await findAta(
                         rewardMint,
                         userRewardMintTokenAccountOwnerId,

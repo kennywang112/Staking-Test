@@ -26,7 +26,7 @@ let hacoIdentifier = `TTG0905`;//this is for the owner
 let stakePoolIdentifier = `abc`;//this is for the client
 let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
 
-let mintId = new PublicKey('ARuovD2o6b1BKGvhDKiQorYUf2koA6DEZj1xrZ6gGBFb')
+let mintId = new PublicKey('8cSVigyxGxc5EzUdpWDoEvhVtXKrucYHg6k8cPrHciai')//DbTgwGckx2rQwEhMcECzt4QwD2rphkxSeyUaLTeBk5zh
 let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 let col_1 = new PublicKey('8E8BHMvZiKq7q9xn1dw8rbZr7Vf2uPUdshaNU5mmFeZ8')
 let col_2 = new PublicKey('GWqTyimCmP7oFSP2uzxfAGWoCkv38sKPF6jkYEiFqJBz')
@@ -222,8 +222,8 @@ async function InitRewardDistribution () {
         rewardDistributor: rewardDistributorId,
         stakePool: stakePoolId,
         rewardMint: rewardmintId,
-        authority: provider.wallet.publicKey,
-        payer: provider.wallet.publicKey,
+        authority: provider.wallet.publicKey.value,
+        payer: provider.wallet.publicKey.value,
     })
     .instruction();
 
@@ -396,7 +396,7 @@ async function Check() {
         REWARDS_CENTER_ADDRESS,
         idl
     )
-    const reward =await fetchIdlAccountDataById(
+    const reward = await fetchIdlAccountDataById(
         connection,
         [rewardDistributorId],
         REWARDS_CENTER_ADDRESS,
@@ -411,7 +411,7 @@ async function Check() {
 
     // const metadataId = findMintMetadataId(mintId);
 
-    console.log(Object.keys(reward) == '')
+    console.log(reward[Object.keys(reward)[0]].parsed.rewardMint)
 }
 async function CC() {
 

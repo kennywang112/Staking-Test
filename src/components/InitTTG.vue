@@ -17,14 +17,16 @@ import {
 const anchor = require('@project-serum/anchor');
 import { utils,BN } from "@coral-xyz/anchor";
 import { getAssociatedTokenAddressSync, createTransferInstruction, getAccount, getMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
-import { stake, unstake, stakeauth } from "../useStakingOrigin"
+import { stake, unstake } from "../useStakingOrigin"
 const wallet = useWallet();
 
 let hacoIdentifier = `TTGG`;//this is for the owner
-let stakePoolIdentifier = `ad`;//this is for the client
-let REWARDS_CENTER_ADDRESS = new PublicKey("648a7xE2sSERhxeXWKtnptDA1cJT2dUAgq9sJ558en9q")
+let stakePoolIdentifier = `abc`;//this is for the client
+let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
+let METADATA_PROGRAM = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
 
-let mintId = new PublicKey('33HCu267WEyQG3oi1iMNsgoHoBGT2XhzeptNkPgQH14U')
+let mintId = new PublicKey('39on12Uw9AqbkxoxRonq2Zy2DcdZqYJ1UBg5Kw3RzQi2')
+let mintId2 = new PublicKey('ENqhSX5dwE544Au9RKnfocnhHtDcCJccgFcmKox6uEvf')
 let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 
 let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
@@ -58,7 +60,13 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-
+let discountId = PublicKey.findProgramAddressSync(
+    [
+        utils.bytes.utf8.encode("discount-prefix"),
+        utils.bytes.utf8.encode(stakePoolIdentifier),
+    ],
+    REWARDS_CENTER_ADDRESS
+)[0];
 const SOL_PAYMENT_INFO = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ");//no use
 
 async function InitPool () {
@@ -66,14 +74,51 @@ async function InitPool () {
     idl = await idl
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     
+    const nftmint = await getMint(connection, mintId)
+    const mint_ata = await getOrCreateAssociatedTokenAccount(connection, wallet, mintId, wallet.publicKey.value)
+    const metadataAccount = PublicKey.findProgramAddressSync(
+        [
+            anchor.utils.bytes.utf8.encode("metadata"),
+            METADATA_PROGRAM.toBuffer(),
+            nftmint.address.toBuffer(),
+        ],
+        METADATA_PROGRAM
+    )[0];
+
     const tx = new Transaction();
+
+    const discountix = await program.methods
+        .initDiscount({
+            discountStr: 'discount',
+            authority: wallet.publicKey.value,
+            identifier: stakePoolIdentifier
+        })
+        .accounts({
+            payer: wallet.publicKey.value,
+            discountData: discountId,
+            nftMint: nftmint.address,
+            nftTokenAccount: mint_ata.address,
+            metadataAccount: metadataAccount,
+            systemProgram: SystemProgram.programId,
+        })
+        .instruction();
+    tx.add(discountix);
+
+    const remain = [
+        {
+          pubkey: discountId,
+          isSigner: false,
+          isWritable: false,
+        },
+      ]
+
     const ix = await program.methods
     .initPool({
         identifier: stakePoolIdentifier,
         allowedCollections: [],
         allowedCreators: [],
-        requiresAuthorization: true,
-        authority: new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf'),
+        requiresAuthorization: false,
+        authority: new PublicKey('Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG'),
         resetOnUnstake: false,
         cooldownSeconds: null,
         minStakeSeconds: null,
@@ -87,20 +132,21 @@ async function InitPool () {
         payer: wallet.publicKey.value,
         systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(remain)
     .instruction();
 
     tx.add(ix);
 
-    console.log(tx)
+    // console.log(nftmint)
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
-    const stakePool =await fetchIdlAccountDataById(
+    const discountdata =await fetchIdlAccountDataById(
         connection,
-        [stakePoolId],
+        [discountId],
         REWARDS_CENTER_ADDRESS,
         idl
     )
-    console.log(stakePool[Object.keys(stakePool)[0]])
+    console.log(discountdata[Object.keys(discountdata)[0]])
 }
 async function InitPayment () {
 
@@ -213,7 +259,7 @@ async function UpdatePool () {
         }).instruction()
     );
 
-    console.log(paymentInfoId)
+    console.log(tx)
 
     const exec = await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
@@ -228,7 +274,7 @@ async function Stake () {
 }
 async function UnStake () {
 
-    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
+    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId},{mintId: mintId2}],[rewardDistributorId])
 
     await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
@@ -260,49 +306,6 @@ async function ClosePool () {
 
 }
 
-async function Authorize () {
-
-    const authorizationId = PublicKey.findProgramAddressSync(
-        [
-        utils.bytes.utf8.encode(`stake-authorization`),
-        stakePoolId.toBuffer(),
-        mintId.toBuffer(),
-        ],
-        REWARDS_CENTER_ADDRESS
-    )[0];
-
-    idl = await idl
-    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
-
-    const tx = new Transaction();
-    tx.add(
-    await program.methods
-        .authorizeMint(mintId)
-        .accounts({
-        stakePool: stakePoolId,
-        stakeAuthorizationRecord: authorizationId,
-        payer: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-        })
-        .instruction()
-    )
-
-    // await executeTransactions(connection, [tx], provider.wallet.wallet.value);
-    const authorization = await fetchIdlAccountDataById(
-        connection,
-        [authorizationId],
-        REWARDS_CENTER_ADDRESS,
-        idl
-    )
-    console.log(authorization)
-}
-async function StakeWithAuth () {
-
-    const tx = await stakeauth(connection, wallet, stakePoolIdentifier, [{mintId: mintId}])
-    await executeTransactions(connection, tx, provider.wallet.wallet.value);
-
-    console.log(tx)
-}
 </script>
 
 <template>
@@ -333,20 +336,6 @@ async function StakeWithAuth () {
             @click="InitRewardDistribution">
             <span>
                 Init reward distribution
-            </span>
-        </button>
-        <button
-            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="Authorize">
-            <span>
-                Authorize
-            </span>
-        </button>
-        <button
-            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
-            @click="StakeWithAuth">
-            <span>
-                Stake auth
             </span>
         </button>
         <button

@@ -17,7 +17,8 @@ import {
   withFindOrInitAssociatedTokenAccount,
   decodeIdlAccount,
   tryNull,
-  findTokenRecordId,findAta
+  findTokenRecordId,
+  findAta
 } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 import { utils,BN } from "@coral-xyz/anchor";

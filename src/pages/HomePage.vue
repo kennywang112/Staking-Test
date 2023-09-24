@@ -15,18 +15,18 @@ import FullPool from '../components/FullPool.vue'
             <!-- version1
             <div class="text-center">
                 <init-all></init-all>
-            </div>
-            <div class="text-center">
+            </div> -->
+            <!-- <div class="text-center">
                 <staking-test></staking-test>
             </div> -->
-            <!-- origin
+            origin
             <div class="text-center">
                 <init-ttg></init-ttg>
-            </div> -->
-            version2
+            </div>
+            <!-- version2
             <div class="text-center">
                 <init-ver2></init-ver2>
-            </div>
+            </div> -->
             version2
             <div class="text-center">
                 <full-pool></full-pool>
