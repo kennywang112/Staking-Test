@@ -28,7 +28,7 @@ import {
 import BN from "bn.js";
 
 let hacoIdentifier = `TTG0905`;//this is for the owner
-let REWARDS_CENTER_ADDRESS = new PublicKey("7qvLBUh8LeRZrd35Df1uoV5pKt4oxgmJosKZr3yRYsXQ")
+let REWARDS_CENTER_ADDRESS = new PublicKey("EsdggWUH1vmrEyAGFgqKBvKWcRpKQJLB77oAtMoMtsd5")
 
 async function hacopayment (payer, connection, wallet) {
 
@@ -303,7 +303,7 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
     return txs;
 }
 
-export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, attr) => {
+export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, userattribute) => {
 
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
@@ -313,13 +313,6 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
         [
             utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
             utils.bytes.utf8.encode(stakePoolIdentifier), // ix.identifier.as_ref()
-        ],
-        REWARDS_CENTER_ADDRESS
-    )[0];
-    const collectionMulId = PublicKey.findProgramAddressSync(
-        [
-            utils.bytes.utf8.encode('collection-mul'),
-            utils.bytes.utf8.encode(stakePoolIdentifier),
         ],
         REWARDS_CENTER_ADDRESS
     )[0];
@@ -386,7 +379,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     //accountDataById = { ...accountDataById, ...accountDataById2, ...distributor };
     accountDataById = { ...accountDataById, ...distributor };
     for (const { mintId, stakeEntryId, rewardEntryIds } of mints) {
-        let metadataId = findMintMetadataId(mintId); //v2
+        const metadataId = findMintMetadataId(mintId); //v2
 
         const tx = new Transaction();
         const userEscrowId = PublicKey.findProgramAddressSync(
@@ -442,6 +435,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                         wallet.publicKey,
                         true
                     );
+                    console.log(rewardDistributorData)
                     //unstake同時包含claim reward所以還是需要判斷entry是否已經初始化
                     if (!rewardEntry) {
 
@@ -464,7 +458,43 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                         tx.add(ix);
 
                     }
+                    const collectionMulId = PublicKey.findProgramAddressSync(
+                        [
+                            utils.bytes.utf8.encode('collection-mul'),
+                            utils.bytes.utf8.encode(stakePoolIdentifier),
+                        ],
+                        REWARDS_CENTER_ADDRESS
+                    )[0];
+                    const attributeMulId = PublicKey.findProgramAddressSync(
+                        [
+                            utils.bytes.utf8.encode('attribute-mul'),
+                            utils.bytes.utf8.encode(stakePoolIdentifier),
+                        ],
+                        REWARDS_CENTER_ADDRESS
+                    )[0];
                     const remainingAccounts = await hacopayment(wallet.publicKey, connection, wallet)
+                    const new_remaining_1 = {
+                        pubkey: metadataId,
+                        isSigner: false,
+                        isWritable: true
+                    }
+                    const new_remaining_2 = {
+                        pubkey: collectionMulId,
+                        isSigner: false,
+                        isWritable: false                       
+                    }
+                    const new_remaining_3 = {
+                        pubkey: attributeMulId,
+                        isSigner: false,
+                        isWritable: false                       
+                    }
+                    const new_remaining_4 = {
+                        pubkey: userattribute,
+                        isSigner: false,
+                        isWritable: false                       
+                    }
+                    remainingAccounts.unshift(new_remaining_1, new_remaining_2, new_remaining_3, new_remaining_4)
+                    console.log(remainingAccounts[0].pubkey == new_remaining_1.pubkey)
                     const ix = await program
                         .methods.claimRewards()
                         .accounts({
@@ -480,11 +510,11 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                             stakeEntry: stakeEntryId,
                             stakePool: stakePoolId,
                             rewardMint: rewardMint,
-                            stakeMintMetadata: metadataId,
-                            collectionMul: collectionMulId,
+                            // stakeMintMetadata: metadataId,
+                            // collectionMul: collectionMulId,
                             userRewardMintTokenAccount: userRewardMintTokenAccount,
                             rewardDistributorTokenAccount: rewardDistributorTokenAccount,
-                            attributeMul: attr,
+                            // attributeMul: attr,
                             user: wallet.publicKey,
                             tokenProgram: TOKEN_PROGRAM_ID,
                             systemProgram: SystemProgram.programId
@@ -614,7 +644,7 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds, at
 
             const ix = await program
                 .methods.initEntry({
-                    attribute: attr,
+                    // attribute: attr,
                     user: wallet.publicKey
                 })
                 .accounts({

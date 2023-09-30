@@ -20,39 +20,38 @@ import { getAssociatedTokenAddressSync, createTransferInstruction, getAccount, g
 import { stake, unstake } from "../useStakingOrigin"
 const wallet = useWallet();
 
-let hacoIdentifier = `TTGG`;//this is for the owner
-let stakePoolIdentifier = `abc`;//this is for the client
-let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
-let METADATA_PROGRAM = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+const hacoIdentifier = `TTGG`;//this is for the owner
+const stakePoolIdentifier = `abcdef`;//this is for the client
+const REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
+const METADATA_PROGRAM = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
 
-let mintId = new PublicKey('39on12Uw9AqbkxoxRonq2Zy2DcdZqYJ1UBg5Kw3RzQi2')
-let mintId2 = new PublicKey('ENqhSX5dwE544Au9RKnfocnhHtDcCJccgFcmKox6uEvf')
-let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
+const mintId = new PublicKey('5B8Fw8Tsx6kLvQT1Hpef69UdWkT6axLEnAGCdD7VeFZ6')
+const rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 
-let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
-let provider = new anchor.AnchorProvider(connection, wallet)
+const connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
+const provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
 
-let authority = new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf')
+const authority = new PublicKey('F4rMWNogrJ7bsknYCKEkDiRbTS9voM7gKU2rcTDwzuwf')
 
 wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
 wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
 
-let stakePoolId = PublicKey.findProgramAddressSync(
+const stakePoolId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode('stake-pool'),
     utils.bytes.utf8.encode(stakePoolIdentifier),
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-let paymentInfoId = PublicKey.findProgramAddressSync(
+const paymentInfoId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode("payment-info"),
     utils.bytes.utf8.encode(hacoIdentifier),
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-let rewardDistributorId = PublicKey.findProgramAddressSync(
+const rewardDistributorId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode("reward-distributor"),
     stakePoolId.toBuffer(),
@@ -60,7 +59,7 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-let discountId = PublicKey.findProgramAddressSync(
+const discountId = PublicKey.findProgramAddressSync(
     [
         utils.bytes.utf8.encode("discount-prefix"),
         utils.bytes.utf8.encode(stakePoolIdentifier),
@@ -75,7 +74,7 @@ async function InitPool () {
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     
     const nftmint = await getMint(connection, mintId)
-    const mint_ata = await getOrCreateAssociatedTokenAccount(connection, wallet, mintId, wallet.publicKey.value)
+    const mint_ata = await getOrCreateAssociatedTokenAccount(connection, wallet, mintId, wallet.publicKey)
     const metadataAccount = PublicKey.findProgramAddressSync(
         [
             anchor.utils.bytes.utf8.encode("metadata"),
@@ -89,7 +88,7 @@ async function InitPool () {
 
     const discountix = await program.methods
         .initDiscount({
-            discountStr: 'discount',
+            discountStr: 'admiral100',
             authority: wallet.publicKey.value,
             identifier: stakePoolIdentifier
         })
@@ -274,7 +273,7 @@ async function Stake () {
 }
 async function UnStake () {
 
-    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId},{mintId: mintId2}],[rewardDistributorId])
+    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId])
 
     await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
