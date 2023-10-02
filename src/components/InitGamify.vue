@@ -24,14 +24,15 @@ const wallet = useWallet();
 
 const hacoIdentifier = `TTG0905`;//this is for the owner
 const stakePoolIdentifier = `collection-test`;//this is for the client
-const REWARDS_CENTER_ADDRESS = new PublicKey("EsdggWUH1vmrEyAGFgqKBvKWcRpKQJLB77oAtMoMtsd5")
+const REWARDS_CENTER_ADDRESS = new PublicKey("LqGdezVesRYGfZWGD9FPztZvgsKKertdTrrwaGz1j5u")
 
-const mintId = new PublicKey('AdjRT8ehv9hUAzFyDzcKCYyDUz9VXWigNxq4BrYHvZz')
+const mintId = new PublicKey('4iV3zcyymBSYgG3J2YhRSTciqkoMWgEeHeow1EWxqcos')
 const rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
 const col_1 = new PublicKey('8E8BHMvZiKq7q9xn1dw8rbZr7Vf2uPUdshaNU5mmFeZ8')
 const col_2 = new PublicKey('GWqTyimCmP7oFSP2uzxfAGWoCkv38sKPF6jkYEiFqJBz')
 
-const connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
+// const connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
+const connection = new anchor.web3.Connection('https://skilled-quick-county.solana-devnet.quiknode.pro/e94c4fcbe22a773f6cfe1b171daa0ce9972521a5/')
 const provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
 
@@ -143,7 +144,7 @@ async function InitCollectionMul () {
     .instruction();
 
     tx.add(ix)
-    // await executeTransaction(provider.connection, tx, provider.wallet.wallet.value)
+    await executeTransaction(provider.connection, tx, provider.wallet.wallet.value)
     const collectionMul =await fetchIdlAccountDataById(
         connection,
         [collectionMulId],
@@ -159,7 +160,7 @@ async function InitAttributeMul () {
     const tx = new Transaction();
     const ix = await program.methods
     .initAttributeMul({
-      attributeMultiply: [['char', '謀略者']],
+      attributeMultiply: [[col_1.toString(), 'char', '謀略者']],
       multiplyData: [
         [16, 10],
       ],
@@ -283,7 +284,8 @@ async function InitUserAttribute () {
     const tx = new Transaction();
     const ix = await program.methods
         .initUserAttribute({
-            attribute: [attribute],
+            collection: col_1,
+            attribute: attribute,
             identifier: stakePoolIdentifier,
             authority: provider.wallet.publicKey,
         })
@@ -299,6 +301,38 @@ async function InitUserAttribute () {
 
     console.log(nftmint.address)
 }
+async function InitProof (proofId, random_identifier) {
+
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+
+    const tx = new Transaction();
+    const ix = await program.methods
+    .initProof({
+        authority: provider.wallet.publicKey,
+        identifier: random_identifier
+    })
+    .accounts({
+        proofState: proofId,
+        userProof: provider.wallet.publicKey,
+        owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
+        systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+
+    tx.add(ix);
+
+    console.log(proofId)
+    const exec = await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+    // const proof =await fetchIdlAccountDataById(
+    //     connection,
+    //     [proofId],
+    //     REWARDS_CENTER_ADDRESS,
+    //     idl
+    // )
+    // console.log(proof[Object.keys(proof)[0]].parsed.time.toString())
+    console.log(exec)
+}
 
 async function UpdateCollectionMul () {
 
@@ -307,10 +341,11 @@ async function UpdateCollectionMul () {
     const tx = new Transaction();
     const ix = await program.methods
     .updateCollectionMul({
-        collectionsMultiply:[col_1, col_2],
+        collectionsMultiply:[col_1, col_2, col_1],
         multiplyData: [
-            [7, 9],
-            [15, 6]
+            [8, 50],
+            [7, 50],
+            [15, 50]
         ],
         identifier: stakePoolIdentifier,
         authority: authority
@@ -372,16 +407,20 @@ async function UpdateAttributeMul () {
     const tx = new Transaction();
     const ix = await program.methods
     .updateAttributeMul({
-      attributeMultiply: [
-        ['char', '謀略者'],
-        ['time horizon', '法式']
-    ],
-      multiplyData: [
-        [50, 9],
-        [5, 9],
-      ],
-      identifier: stakePoolIdentifier,
-      authority: provider.wallet.publicKey
+        attributeMultiply: [
+            [col_1.toString(), 'char', '謀略者'],
+            [col_1.toString(), 'char', '謀略者'],
+            [col_1.toString(), 'time horizon', '法式'],
+            [col_1.toString(), 'time horizon', 'WANTED']
+        ],
+        multiplyData: [
+            [50, 50],
+            [5, 50],
+            [5, 90],
+            [4, 0],
+        ],
+        identifier: stakePoolIdentifier,
+        authority: provider.wallet.publicKey
     })
     .accounts({
       attributeMul: attributeMulId,
@@ -423,6 +462,7 @@ async function UpdateUserAttribute () {
     const tx = new Transaction();
     const ix = await program.methods
         .updateUserAttribute({
+            collection: col_1,
             attribute: attribute,
             identifier: stakePoolIdentifier,
             authority: provider.wallet.publicKey,
@@ -435,7 +475,7 @@ async function UpdateUserAttribute () {
         })
         .instruction();
     tx.add(ix)
-    await executeTransaction(connection, tx, provider.wallet.wallet.value);
+    // await executeTransaction(connection, tx, provider.wallet.wallet.value);
 
     const userattribute = await fetchIdlAccountDataById(
         connection,
@@ -443,9 +483,7 @@ async function UpdateUserAttribute () {
         REWARDS_CENTER_ADDRESS,
         idl
     )
-    console.log(userattribute)
     console.log('user',userattribute[Object.keys(userattribute)[0]].parsed)
-    console.log('attribute',attribute[Object.keys(attribute)[0]].parsed)
 }
 
 async function Stake () {
@@ -476,8 +514,20 @@ async function UnStake () {
     const nftmetadata = await metaplex.nfts().findByMint({mintAddress: mintId})
     const attribute = nftmetadata.json?.attributes.map(item => [item.trait_type, item.value]);
 
-    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId], userattribute)
+    const random_identifier = `test-${Math.random()}`;
+    const proofId = PublicKey.findProgramAddressSync(
+        [
+            anchor.utils.bytes.utf8.encode('proof'),
+            anchor.utils.bytes.utf8.encode(random_identifier),
+        ],
+        REWARDS_CENTER_ADDRESS
+    )[0];
 
+    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}],[rewardDistributorId], userattribute, proofId)
+
+    await InitProof(proofId, random_identifier)
+    console.log('hi')
+    await sleep(10000)
     await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
     console.log(tx)
@@ -2756,6 +2806,9 @@ async function getStakePoolsByAuthority(connection, user) {
     //   );
     return stakePoolDatas
 }
+function sleep (time) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
 
 </script>
 
@@ -2773,6 +2826,13 @@ async function getStakePoolsByAuthority(connection, user) {
             @click="InitPool">
             <span>
                 Init Pool
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="InitProof">
+            <span>
+                Init Proof
             </span>
         </button>
         <button

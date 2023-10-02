@@ -28,7 +28,7 @@ import {
 import BN from "bn.js";
 
 let hacoIdentifier = `TTG0905`;//this is for the owner
-let REWARDS_CENTER_ADDRESS = new PublicKey("EsdggWUH1vmrEyAGFgqKBvKWcRpKQJLB77oAtMoMtsd5")
+let REWARDS_CENTER_ADDRESS = new PublicKey("LqGdezVesRYGfZWGD9FPztZvgsKKertdTrrwaGz1j5u")
 
 async function hacopayment (payer, connection, wallet) {
 
@@ -303,7 +303,7 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
     return txs;
 }
 
-export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, userattribute) => {
+export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, userattribute, proofId) => {
 
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
@@ -493,7 +493,12 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                         isSigner: false,
                         isWritable: false                       
                     }
-                    remainingAccounts.unshift(new_remaining_1, new_remaining_2, new_remaining_3, new_remaining_4)
+                    const new_remaining_5 = {
+                        pubkey: proofId,
+                        isSigner: false,
+                        isWritable: false                       
+                    }
+                    remainingAccounts.unshift(new_remaining_1, new_remaining_2, new_remaining_3, new_remaining_4, new_remaining_5)
                     console.log(remainingAccounts[0].pubkey == new_remaining_1.pubkey)
                     const ix = await program
                         .methods.claimRewards()
@@ -515,6 +520,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                             userRewardMintTokenAccount: userRewardMintTokenAccount,
                             rewardDistributorTokenAccount: rewardDistributorTokenAccount,
                             // attributeMul: attr,
+                            ownerInfo: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
                             user: wallet.publicKey,
                             tokenProgram: TOKEN_PROGRAM_ID,
                             systemProgram: SystemProgram.programId

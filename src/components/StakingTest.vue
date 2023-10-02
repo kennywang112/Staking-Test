@@ -874,11 +874,11 @@ async function reclaim_fund () {
   const reclaim = await program.methods
     .reclaimFunds(new BN(rewardDistributorAta.amount))
     .accounts({
-      rewardDistributor:rewardDistributor[Object.keys(rewardDistributor)[0]].pubkey,
-      rewardDistributorTokenAccount:rewardDistributorTokenAccount,
-      authorityTokenAccount:authorityTokenAccount,
+      rewardDistributor: rewardDistributor[Object.keys(rewardDistributor)[0]].pubkey,
+      rewardDistributorTokenAccount: rewardDistributorTokenAccount,
+      authorityTokenAccount: authorityTokenAccount,
       authority: provider.wallet.publicKey.value,
-      tokenProgram:TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
     .instruction();
   tx.add(reclaim)
