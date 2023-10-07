@@ -22,9 +22,10 @@ import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 
 const wallet = useWallet();
 
-const hacoIdentifier = `TTG0905`;//this is for the owner
-const stakePoolIdentifier = `collection-test`;//this is for the client
-const REWARDS_CENTER_ADDRESS = new PublicKey("LqGdezVesRYGfZWGD9FPztZvgsKKertdTrrwaGz1j5u")
+// const stakePoolIdentifier = `collection-test`;//this is for the client
+const stakePoolIdentifier = `collection-test3`;
+// const REWARDS_CENTER_ADDRESS = new PublicKey("LqGdezVesRYGfZWGD9FPztZvgsKKertdTrrwaGz1j5u")
+const REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
 
 const mintId = new PublicKey('4iV3zcyymBSYgG3J2YhRSTciqkoMWgEeHeow1EWxqcos')
 const rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
@@ -51,7 +52,7 @@ const stakePoolId = PublicKey.findProgramAddressSync(
 const paymentInfoId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode("payment-info"),
-    utils.bytes.utf8.encode(hacoIdentifier),
+    utils.bytes.utf8.encode("TTGG"),
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
@@ -86,6 +87,40 @@ async function InitPool () {
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     
     const tx = new Transaction();
+    //ttg additional
+    const discountId = PublicKey.findProgramAddressSync(
+        [
+            anchor.utils.bytes.utf8.encode("discount-prefix"),
+            anchor.utils.bytes.utf8.encode(stakePoolIdentifier),
+        ],
+        REWARDS_CENTER_ADDRESS
+    )[0];
+
+    const discountix = await program.methods
+        .initDiscount({
+            discountStr: "",
+            authority: wallet.publicKey.value,
+            identifier: stakePoolIdentifier
+        })
+        .accounts({
+            discountData: discountId,
+            nftMint: null,
+            nftTokenAccount: null,
+            metadataAccount: null,
+            payer: wallet.publicKey.value,
+            systemProgram: SystemProgram.programId,
+        })
+        .instruction();
+    tx.add(discountix);
+
+    const remain = [
+        {
+            pubkey: discountId,
+            isSigner: false,
+            isWritable: false,
+        },
+    ]
+
     const ix = await program.methods
     .initPool({
         identifier: stakePoolIdentifier,
@@ -106,6 +141,7 @@ async function InitPool () {
         payer: wallet.publicKey.value,
         systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(remain)
     .instruction();
 
     tx.add(ix);
@@ -170,10 +206,11 @@ async function InitAttributeMul () {
     .accounts({
       attributeMul: attributeMulId,
       stakePool: stakePoolId,
+      owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
       payer: provider.wallet.publicKey,
       systemProgram: SystemProgram.programId,
     })
-    .instruction(collectionMulId);
+    .instruction();
 
     tx.add(ix)
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value)
@@ -183,21 +220,39 @@ async function InitPayment () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
+    // const ix = await program.methods
+    //     .initPaymentInfo({
+    //         authority: wallet.publicKey,
+    //         identifier: "TTGG",
+    //         paymentAmount: new BN(200_000),
+    //         paymentMint: PublicKey.default,
+    //         paymentShares: [
+    //             {
+    //             address: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
+    //             basisPoints: 10000,
+    //             },
+    //         ],
+    //     })
+    //     .accounts({ 
+    //         paymentInfo: paymentInfoId, 
+    //         payer: wallet.publicKey ,
+    //         systemProgram: SystemProgram.programId})
+    //     .instruction();
     const ix = await program.methods
-        .initPaymentInfo({
+        .updatePaymentInfo({
             authority: wallet.publicKey,
-            identifier: hacoIdentifier,
-            paymentAmount: new BN(200000),
+            paymentAmount: new BN(2_000_000),
             paymentMint: PublicKey.default,
             paymentShares: [
                 {
-                address: wallet.publicKey,
+                address: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
                 basisPoints: 10000,
                 },
             ],
         })
         .accounts({ 
             paymentInfo: paymentInfoId, 
+            authority : wallet.publicKey,
             payer: wallet.publicKey ,
             systemProgram: SystemProgram.programId})
         .instruction();
@@ -408,16 +463,16 @@ async function UpdateAttributeMul () {
     const ix = await program.methods
     .updateAttributeMul({
         attributeMultiply: [
-            [col_1.toString(), 'char', '謀略者'],
-            [col_1.toString(), 'char', '謀略者'],
-            [col_1.toString(), 'time horizon', '法式'],
-            [col_1.toString(), 'time horizon', 'WANTED']
+            // [col_1.toString(), 'char', '謀略者'],
+            // [col_1.toString(), 'char', '謀略者'],
+            // [col_1.toString(), 'time horizon', '法式'],
+            // [col_1.toString(), 'time horizon', 'WANTED']
         ],
         multiplyData: [
-            [50, 50],
-            [5, 50],
-            [5, 90],
-            [4, 0],
+            // [50, 50],
+            // [5, 50],
+            // [5, 90],
+            // [4, 0],
         ],
         identifier: stakePoolIdentifier,
         authority: provider.wallet.publicKey
@@ -493,7 +548,7 @@ async function Stake () {
     const attribute = nftmetadata.json?.attributes.map(item => [item.trait_type, item.value]);
 
     const tx = await stake(connection, wallet, stakePoolIdentifier, [{mintId: mintId}], [attribute])
-    await executeTransactions(connection, tx, provider.wallet.wallet.value);
+    // await executeTransactions(connection, tx, provider.wallet.wallet.value);
 
     console.log(tx)
 
@@ -602,6 +657,16 @@ async function Check() {
     // const metadataId = findMintMetadataId(mintId);
 
     console.log(stakePool)
+
+    const paymentInfoId = PublicKey.findProgramAddressSync(
+        [
+        utils.bytes.utf8.encode("payment-info"),
+        utils.bytes.utf8.encode("TTGG"),
+        //utils.bytes.utf8.encode('1'),
+        ],
+        REWARDS_CENTER_ADDRESS
+    )[0];
+    console.log(paymentInfoId)
 }
 async function MetaData() {
 
@@ -611,7 +676,9 @@ async function MetaData() {
     const nftmetadata = await metaplex.nfts().findByMint({mintAddress: mintId})
     const attribute = nftmetadata.json?.attributes.map(item => [item.trait_type, item.value]);
     console.log(attribute)
-
+    const metadataId = findMintMetadataId(mintId);
+    const nftmint = await getMint(connection,mintId)
+    console.log(nftmint)
     // const metadataPda = metaplex.nfts().pdas().metadata({ mint: mintId });
     // console.log(metadataPda)
     // const ata = getAssociatedTokenAddressSync(mintId, wallet.publicKey)

@@ -18,17 +18,20 @@ import {
 import { utils } from "@coral-xyz/anchor";
 import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-token-auth-rules";
-import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";//for staking 
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction, getMint } from "@solana/spl-token";//for staking 
 import { AnchorProvider, Program } from "@project-serum/anchor";
 import {
     findMintManagerId,
     MintManager,
     PROGRAM_ID as CREATOR_STANDARD_PROGRAM_ID,
 } from "@cardinal/creator-standard";
+const anchor = require('@project-serum/anchor');
+import { Metaplex } from '@metaplex-foundation/js';
 import BN from "bn.js";
 
-let hacoIdentifier = `TTG0905`;//this is for the owner
-let REWARDS_CENTER_ADDRESS = new PublicKey("LqGdezVesRYGfZWGD9FPztZvgsKKertdTrrwaGz1j5u")
+let hacoIdentifier = `TTGG`;//this is for the owner
+let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
+const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
 async function hacopayment (payer, connection, wallet) {
 
@@ -585,7 +588,8 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     return txs;
 }
 
-export const stake = async (connection, wallet, stakePoolIdentifier, mintIds, attr) => {
+export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) => {
+
     const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
     const provider = new AnchorProvider(connection, wallet)
     const idl = await Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
@@ -646,11 +650,11 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds, at
             : undefined;
 
         //第一次stake需要init entry
+        console.log(program.methods.initEntry())
         if (!accountDataById[stakeEntryId.toString()]) {
 
             const ix = await program
                 .methods.initEntry({
-                    // attribute: attr,
                     user: wallet.publicKey
                 })
                 .accounts({

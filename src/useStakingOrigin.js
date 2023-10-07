@@ -20,12 +20,6 @@ import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-token-auth-rules";
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";//for staking 
 import { AnchorProvider, Program } from "@project-serum/anchor";
-import {
-    findMintManagerId,
-    MintManager,
-    PROGRAM_ID as CREATOR_STANDARD_PROGRAM_ID,
-} from "@cardinal/creator-standard";
-import BN from "bn.js";
 
 let hacoIdentifier = `TTGG`;//this is for the owner
 let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g");
@@ -627,6 +621,8 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) =>
             ],
             METADATA_PROGRAM_ID
         )[0];
+
+
         const stakeTokenRecordAccountId = findTokenRecordId(
             mintId,
             mintTokenAccountId
@@ -659,6 +655,7 @@ export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) =>
             .remainingAccounts(remainingAccounts)
             .instruction();
         tx.add(stakeIx);
+
         txs.push(tx);
     }
 
