@@ -4,28 +4,28 @@ import {
     Transaction, 
     PublicKey,
     SystemProgram,
-    clusterApiUrl 
 } from '@solana/web3.js';
 import { 
     executeTransaction,
     executeTransactions, 
     withFindOrInitAssociatedTokenAccount, 
     fetchIdlAccountDataById,
-    findMintMetadataId
+    findMintMetadataId,
+    chunkArray
  } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 import { utils, BN, BorshAccountsCoder } from "@coral-xyz/anchor";
-import { getAssociatedTokenAddressSync, createTransferInstruction, getAccount, getMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync, createTransferInstruction, getAccount, getMint } from "@solana/spl-token";
 import { stake, unstake } from "../useStakingGamify"
 import { Metaplex } from '@metaplex-foundation/js';
-import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 
 const wallet = useWallet();
 
 // const stakePoolIdentifier = `collection-test`;//this is for the client
-const stakePoolIdentifier = `collection-test3`;
+const stakePoolIdentifier = `collection-test23`;
 // const REWARDS_CENTER_ADDRESS = new PublicKey("LqGdezVesRYGfZWGD9FPztZvgsKKertdTrrwaGz1j5u")
 const REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
+const CONFIG_VALUE_LIMIT = 790;
 
 const mintId = new PublicKey('4iV3zcyymBSYgG3J2YhRSTciqkoMWgEeHeow1EWxqcos')
 const rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
@@ -75,6 +75,14 @@ const attributeMulId = PublicKey.findProgramAddressSync(
     [
         utils.bytes.utf8.encode('attribute-mul'),
         utils.bytes.utf8.encode(stakePoolIdentifier),
+    ],
+    REWARDS_CENTER_ADDRESS
+)[0];
+const configEntryId = PublicKey.findProgramAddressSync(
+    [
+        anchor.utils.bytes.utf8.encode("config-entry"), 
+        Buffer.from("", "utf-8"), 
+        Buffer.from(stakePoolIdentifier, "utf-8")
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
@@ -288,7 +296,7 @@ async function InitRewardDistribution () {
     })
     .instruction();
 
-    tx.add(ix);
+    // tx.add(ix);
 
     // transfer fund
     const userRewardMintAta = getAssociatedTokenAddressSync(
@@ -309,7 +317,7 @@ async function InitRewardDistribution () {
         rewardDistributorAtaId,
         wallet.publicKey,
         //117600000*(10**6)
-        10000000000
+        25_000_000
         )
     );
 
@@ -387,6 +395,72 @@ async function InitProof (proofId, random_identifier) {
     // )
     // console.log(proof[Object.keys(proof)[0]].parsed.time.toString())
     console.log(exec)
+}
+async function InitConfig () {
+    
+    idl = await idl
+    const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
+    // Config Info
+    const config = {
+        name: "namenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamename",
+        displayName: "display",
+        description: "description",
+        imageUrl: "image_url",
+        stakePoolAddress: new PublicKey(stakePoolId),
+    }
+
+    // 因為資料是合併成字串的關係，無法限制輸入的name在program是唯一
+    const configList = await full_config(idl, connection);
+
+    for (const config of configList) {
+
+        const config_parsed = config.parsed.value.match(/({[^}]+})/g)
+        // const latest_config = JSON.parse(config_parsed[config_parsed.length - 1]);
+    }
+
+    const { ...otherObject } = config // stakePoolAddress: _,
+    const configString = JSON.stringify({
+        stakePoolAddress: stakePoolId.toString(),//Object.keys(stakePool)[0].toString(),
+        ...otherObject,
+    })
+    const configChunks = chunkArray(
+        configString.split(''),
+        CONFIG_VALUE_LIMIT
+    ).map((chunk) => chunk.join(''))
+
+    const tx = new Transaction();
+    const ix = await program.methods
+    .initConfigEntry({
+        prefix: Buffer.from(""),
+        key: Buffer.from(stakePoolIdentifier),
+        value: configChunks[0],
+        extends: [],
+    })
+    .accountsStrict({
+        configEntry: configEntryId,
+        authority: provider.wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+    })
+    .remainingAccounts([
+        {
+            pubkey: new PublicKey(stakePoolId),
+            isSigner: false,
+            isWritable: false,
+        },
+    ])
+    .instruction();
+    tx.add(ix);
+
+    const exec = await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
+
+    const config_data = await fetchIdlAccountDataById(
+        connection,
+        [configEntryId],
+        REWARDS_CENTER_ADDRESS,
+        idl
+    );
+    console.log(config_data)
+
 }
 
 async function UpdateCollectionMul () {
@@ -614,8 +688,8 @@ async function ClosePool () {
 }
 async function Check() {
 
-    let isFungible = false;
-    let stakeEntryId = PublicKey.findProgramAddressSync(
+    const isFungible = false;
+    const stakeEntryId = PublicKey.findProgramAddressSync(
         [
         utils.bytes.utf8.encode("stake-entry"),
         stakePoolId.toBuffer(),
@@ -626,7 +700,6 @@ async function Check() {
     )[0];
 
     idl = await idl
-
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
 
     const stakePool =await fetchIdlAccountDataById(
@@ -650,23 +723,24 @@ async function Check() {
 
     // console.log('last staked at :',entry[Object.keys(entry)[0]].parsed.lastStakedAt.words[0])
     // console.log('last updated at :',entry[Object.keys(entry)[0]].parsed.lastUpdatedAt.words[0])
-    console.log("total staked second :",entry[Object.keys(entry)[0]].parsed.totalStakeSeconds.words[0])
+    // console.log("total staked second :",entry[Object.keys(entry)[0]].parsed.totalStakeSeconds.words[0])
 
     // console.log(reward[Object.keys(reward)[0]].parsed.rewardAmount.toString()/(10**6))
 
-    // const metadataId = findMintMetadataId(mintId);
-
-    console.log(stakePool)
-
-    const paymentInfoId = PublicKey.findProgramAddressSync(
-        [
-        utils.bytes.utf8.encode("payment-info"),
-        utils.bytes.utf8.encode("TTGG"),
-        //utils.bytes.utf8.encode('1'),
-        ],
-        REWARDS_CENTER_ADDRESS
-    )[0];
-    console.log(paymentInfoId)
+    const tx = new Transaction();
+    const rewardDistributorAtaId = await withFindOrInitAssociatedTokenAccount(
+        tx,
+        connection,
+        rewardmintId,
+        rewardDistributorId,
+        wallet.publicKey,
+        true
+    );
+    const rewardDistributorAta = await getAccount(
+        connection,
+        rewardDistributorAtaId
+    );
+    console.log(rewardDistributorAta.amount.toString()/1_000_000)
 }
 async function MetaData() {
 
@@ -2876,6 +2950,42 @@ async function getStakePoolsByAuthority(connection, user) {
 function sleep (time) {
   return new Promise((resolve) => setTimeout(resolve, time));
 }
+async function full_config(idl, connection) {
+
+    const programAccounts = await connection.getProgramAccounts(
+        REWARDS_CENTER_ADDRESS,
+        {
+            filters: [
+                {
+                    memcmp: {
+                        offset: 0,
+                        bytes: utils.bytes.bs58.encode(
+                            BorshAccountsCoder.accountDiscriminator('ConfigEntry')
+                        ),
+                    },
+                },
+            ],
+        }
+    );
+    const configDatas = [];
+    const coder = new BorshAccountsCoder(idl);
+
+    programAccounts.forEach((account) => {
+        try {
+            const entryData = coder.decode('ConfigEntry', account.account.data);
+            if (entryData) {
+                configDatas.push({
+                    ...account,
+                    parsed: entryData,
+                });
+            }
+        } catch (e) {
+            // eslint-disable-next-line no-empty
+        }
+    });
+
+    return configDatas
+}
 
 </script>
 
@@ -2921,6 +3031,13 @@ function sleep (time) {
             @click="InitUserAttribute">
             <span>
                 Init User Attribute
+            </span>
+        </button>
+        <button
+            class="px-8 m-2 btn animate-pulse bg-gradient-to-r from-[#9945FF] to-[#14F195] hover:from-pink-500 hover:to-yellow-500 ..."
+            @click="InitConfig">
+            <span>
+                Init Config
             </span>
         </button>
         <button

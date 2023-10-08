@@ -1,11 +1,11 @@
 <script setup>
 import { useWallet } from 'solana-wallets-vue'
 import { Transaction, PublicKey, SystemProgram, clusterApiUrl } from '@solana/web3.js';
-import { getAssociatedTokenAddressSync, createTransferInstruction, getAccount, getMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync, createTransferInstruction, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
 import { executeTransaction, fetchIdlAccountDataById, withFindOrInitAssociatedTokenAccount, executeTransactions } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 import { utils,BN } from "@coral-xyz/anchor";
-import { stake, unstake } from "../oldStaking"
+import { stakeOld, unstakeOld } from "../oldStaking"
 const wallet = useWallet();
 
 const stakePoolIdentifier = `6`;
@@ -152,30 +152,10 @@ async function init_payment () {//& update
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
 
-    // const ix = await program.methods
-    //     .updatePaymentInfo({
-    //         authority: wallet.publicKey.value,
-    //         paymentAmount: new BN(2000000),
-    //         paymentMint: PublicKey.default,
-    //         paymentShares: [
-    //             {
-    //             address: new PublicKey("2JeNLSrJkSaWoFoSQkb1YsxC1dXSaA1LTLjpakzb9SBf"),
-    //             basisPoints: 10000,
-    //             },
-    //         ],
-    //     })
-    //     .accounts({ 
-    //         paymentInfo: paymentInfoId, 
-    //         authority : wallet.publicKey.value,
-    //         payer: wallet.publicKey.value ,
-    //         systemProgram: SystemProgram.programId})
-    //     .instruction();
-
     const ix = await program.methods
-        .initPaymentInfo({
-            authority: wallet.publicKey,
-            identifier: stakePoolIdentifier,
-            paymentAmount: new BN(200_000),
+        .updatePaymentInfo({
+            authority: wallet.publicKey.value,
+            paymentAmount: new BN(2000000),
             paymentMint: PublicKey.default,
             paymentShares: [
                 {
@@ -186,9 +166,29 @@ async function init_payment () {//& update
         })
         .accounts({ 
             paymentInfo: paymentInfoId, 
-            payer: wallet.publicKey ,
+            authority : wallet.publicKey.value,
+            payer: wallet.publicKey.value ,
             systemProgram: SystemProgram.programId})
         .instruction();
+
+    // const ix = await program.methods
+    //     .initPaymentInfo({
+    //         authority: wallet.publicKey,
+    //         identifier: stakePoolIdentifier,
+    //         paymentAmount: new BN(200_000),
+    //         paymentMint: PublicKey.default,
+    //         paymentShares: [
+    //             {
+    //             address: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
+    //             basisPoints: 10000,
+    //             },
+    //         ],
+    //     })
+    //     .accounts({ 
+    //         paymentInfo: paymentInfoId, 
+    //         payer: wallet.publicKey ,
+    //         systemProgram: SystemProgram.programId})
+    //     .instruction();
     tx.add(ix)
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
@@ -331,17 +331,17 @@ async function init_reward_distribution () {
 
 async function staking () {
 
-    const tx = await stake(connection, wallet, stakePoolIdentifier, [{mintId: masterId}])
+    const tx = await stakeOld(connection, wallet, stakePoolIdentifier, [{mintId: masterId}])
 
     await executeTransactions(connection, tx, provider.wallet.wallet.value);
 }
-
 async function unstaking () {
 
-    const tx = await unstake(connection, wallet, stakePoolIdentifier, [{mintId: masterId}],[rewardDistributorId])
+    const tx = await unstakeOld(connection, wallet, stakePoolIdentifier, [{mintId: masterId}],[rewardDistributorId])
 
     await executeTransactions(connection, tx, provider.wallet.wallet.value)
 }
+
 </script>
 
 <template>

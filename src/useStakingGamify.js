@@ -9,28 +9,22 @@ import {
     fetchIdlAccount,
     fetchIdlAccountDataById,
     findMintMetadataId,
-    decodeIdlAccount,
     findAta,
     tryNull,
     findTokenRecordId,
-    connectionFor
 } from "@cardinal/common";
 import { utils } from "@coral-xyz/anchor";
 import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { PROGRAM_ID as TOKEN_AUTH_RULES_ID } from "@metaplex-foundation/mpl-token-auth-rules";
-import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction, getMint } from "@solana/spl-token";//for staking 
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";//for staking 
 import { AnchorProvider, Program } from "@project-serum/anchor";
-import {
-    findMintManagerId,
-    MintManager,
-    PROGRAM_ID as CREATOR_STANDARD_PROGRAM_ID,
-} from "@cardinal/creator-standard";
+import { findMintManagerId } from "@cardinal/creator-standard";
 const anchor = require('@project-serum/anchor');
-import { Metaplex } from '@metaplex-foundation/js';
-import BN from "bn.js";
 
-let hacoIdentifier = `TTGG`;//this is for the owner
-let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
+// const hacoIdentifier = `TTGG`;//this is for the owner
+const hacoIdentifier = `2`;
+// const REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
+const REWARDS_CENTER_ADDRESS = new PublicKey("An63Hmi2dsQxybVhxRvoXHKRM1qeruYF3J9cEmrBSjsM")
 const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
 async function hacopayment (payer, connection, wallet) {
@@ -496,12 +490,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                         isSigner: false,
                         isWritable: false                       
                     }
-                    const new_remaining_5 = {
-                        pubkey: proofId,
-                        isSigner: false,
-                        isWritable: false                       
-                    }
-                    remainingAccounts.unshift(new_remaining_1, new_remaining_2, new_remaining_3, new_remaining_4, new_remaining_5)
+                    remainingAccounts.unshift(new_remaining_1, new_remaining_2, new_remaining_3, new_remaining_4)
                     console.log(remainingAccounts[0].pubkey == new_remaining_1.pubkey)
                     const ix = await program
                         .methods.claimRewards()

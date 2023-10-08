@@ -10,13 +10,10 @@ import {
     executeTransaction,
     executeTransactions,
     fetchIdlAccountDataById,
-    decodeIdlAccount
+    chunkArray
  } from "@cardinal/common";
 const anchor = require('@project-serum/anchor');
 import { utils, BorshAccountsCoder } from "@coral-xyz/anchor";
-// import { configsProgram } from '@cardinal/configs/dist/cjs/programs/constants'
-// import { findConfigEntryId } from '@cardinal/configs/dist/cjs/programs/pda'
-import { chunkArray } from '@cardinal/common'
 import { claimRewards } from "../useStakingOrigin"
 
 const wallet = useWallet();
@@ -24,25 +21,25 @@ wallet.publicKey = wallet.publicKey.value ?? wallet.publicKey;
 wallet.signAllTransactions = wallet.signAllTransactions.value ?? wallet.signAllTransactions
 
 // let stakePoolIdentifier = `adcs`;//this is for the client
-let stakePoolIdentifier = `amcdew`;
-let REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
-let mintId = new PublicKey('8cSVigyxGxc5EzUdpWDoEvhVtXKrucYHg6k8cPrHciai')
+const stakePoolIdentifier = `amcdew`;
+const REWARDS_CENTER_ADDRESS = new PublicKey("5n4FXHbJHum7cW9w1bzYY8gdvgyC92Zk7yD2Qi9mW13g")
+const mintId = new PublicKey('8cSVigyxGxc5EzUdpWDoEvhVtXKrucYHg6k8cPrHciai')
 
-let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
-let provider = new anchor.AnchorProvider(connection, wallet)
+const connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
+const provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
 
-let keyBuffer = Buffer.from('kennypoolss', 'utf-8')
-let prefixBuffer = Buffer.from('s', 'utf-8')
+const keyBuffer = Buffer.from('kennypoolss', 'utf-8')
+const prefixBuffer = Buffer.from('s', 'utf-8')
 
-let stakePoolId = PublicKey.findProgramAddressSync(
+const stakePoolId = PublicKey.findProgramAddressSync(
     [
         utils.bytes.utf8.encode('stake-pool'),
         utils.bytes.utf8.encode(stakePoolIdentifier),
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-let rewardDistributorId = PublicKey.findProgramAddressSync(
+const rewardDistributorId = PublicKey.findProgramAddressSync(
     [
     utils.bytes.utf8.encode("reward-distributor"),
     stakePoolId.toBuffer(),
@@ -50,7 +47,7 @@ let rewardDistributorId = PublicKey.findProgramAddressSync(
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-let configEntryId = PublicKey.findProgramAddressSync(
+const configEntryId = PublicKey.findProgramAddressSync(
     [
         utils.bytes.utf8.encode("config-entry"),
         prefixBuffer,
@@ -58,7 +55,7 @@ let configEntryId = PublicKey.findProgramAddressSync(
     ],
     REWARDS_CENTER_ADDRESS
 )[0];
-let stakeEntryId = PublicKey.findProgramAddressSync(
+const stakeEntryId = PublicKey.findProgramAddressSync(
     [
         utils.bytes.utf8.encode("stake-entry"),
         stakePoolId.toBuffer(),

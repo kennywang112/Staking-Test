@@ -33,27 +33,27 @@ import {
 } from "@solana/spl-token";//for staking
 const wallet = useWallet();
 
-let REWARDS_CENTER_ADDRESS = new PublicKey("gG9HxoFUWZtiBEJVT3kA12HR2AcwMovv4eAeuziUtHb");
+const REWARDS_CENTER_ADDRESS = new PublicKey("gG9HxoFUWZtiBEJVT3kA12HR2AcwMovv4eAeuziUtHb");
 
-let METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-let stakePoolIdentifier = `clt`;
+const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+const stakePoolIdentifier = `clt`;
 
-let rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
-let mintId = new PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
-let isFungible = false;
+const rewardmintId = new PublicKey('D8J6gcTSLPwXS9h4afZvDEQr2qGxscVfUPnrfbHQxhzJ')
+const mintId = new PublicKey('B3nPfxsxLcqCVkvKvxUPPnmQ2wxS8CSFPFZWWenevpCo')
+const isFungible = false;
 
-let connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
-let provider = new anchor.AnchorProvider(connection, wallet)
+const connection = new anchor.web3.Connection(clusterApiUrl('devnet'))
+const provider = new anchor.AnchorProvider(connection, wallet)
 let idl = anchor.Program.fetchIdl(REWARDS_CENTER_ADDRESS, provider);
 
-let stakePoolId = PublicKey.findProgramAddressSync(
+const stakePoolId = PublicKey.findProgramAddressSync(
   [
   utils.bytes.utf8.encode('stake-pool'),
   utils.bytes.utf8.encode(stakePoolIdentifier),
   ],
   REWARDS_CENTER_ADDRESS
 )[0];
-let stakeEntryId = PublicKey.findProgramAddressSync(
+const stakeEntryId = PublicKey.findProgramAddressSync(
   [
   utils.bytes.utf8.encode("stake-entry"),
   stakePoolId.toBuffer(),
@@ -62,7 +62,7 @@ let stakeEntryId = PublicKey.findProgramAddressSync(
   ],
   REWARDS_CENTER_ADDRESS
 )[0];
-let rewardDistributorId = PublicKey.findProgramAddressSync(
+const rewardDistributorId = PublicKey.findProgramAddressSync(
   [
   utils.bytes.utf8.encode("reward-distributor"),
   stakePoolId.toBuffer(),

@@ -109,8 +109,51 @@ function withRemainingAccountsForPayment(transaction, payer, paymentMint, paymen
     }
     return remainingAccounts;
 }
+async function hacopayment (payer, connection, wallet) {
 
-export const claimRewards = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, claimingRewardsForUsers) => {
+    const provider = new AnchorProvider(connection, wallet)
+    const paymentInfoId = PublicKey.findProgramAddressSync(
+        [
+        utils.bytes.utf8.encode("payment-info"),
+        utils.bytes.utf8.encode(paymentidentifier),
+        ],
+        VUE_STAKING_PROGRAM_ID
+    )[0];
+    const idl = await Program.fetchIdl(VUE_STAKING_PROGRAM_ID, provider);
+    const stakePaymentInfoData = await fetchIdlAccount(
+        connection,
+        paymentInfoId,
+        "PaymentInfo",
+        idl
+    );
+
+    const remainingAccounts = [
+        {
+            pubkey: stakePaymentInfoData.pubkey,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: payer,
+            isSigner: true,
+            isWritable: true,
+        },
+        {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+        },
+        {// target
+            pubkey: stakePaymentInfoData.parsed.paymentShares[0].address,
+            isSigner: false,
+            isWritable: true,
+        }
+    ];
+
+    return remainingAccounts;
+}
+
+export const claimRewardsOld = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, claimingRewardsForUsers) => {
 
     const provider = new AnchorProvider(connection, wallet)
     const stakingprogram = new PublicKey(VUE_STAKING_PROGRAM_ID);
@@ -336,7 +379,7 @@ export const claimRewards = async (connection, wallet, stakePoolIdentifier, mint
     return txs;
 }
 
-export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds) => {
+export const unstakeOld = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds) => {
 
     const provider = new AnchorProvider(connection, wallet)
     const stakingprogram = new PublicKey(VUE_STAKING_PROGRAM_ID);
@@ -437,10 +480,9 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
             idl
         );
         const distributorKey = Object.keys(distributor)[0];
-        //合併所有accountData，distributor的鍵可改進成自己抓取而非硬編碼
-        // accountDataById = { ...accountDataById, ...accountDataById2, ...{ [VUE_APP_STAKING_REWARD_DISTRIBUTER] : distributor[Object.keys(distributor)[0]] } };
         accountDataById = { ...accountDataById, ...accountDataById2, ...distributor };
         for (const { mintId, stakeEntryId, rewardEntryIds } of mints) {
+            const metadataId = findMintMetadataId(mintId); //v2
 
             const tx = new Transaction();
             const userEscrowId = PublicKey.findProgramAddressSync(
@@ -517,23 +559,32 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                             tx.add(ix);
 
                         }
-                        const remainingAccountsForPayment = [];
-                        const claimRewardsPaymentInfo = accountDataById[rewardDistributorData.parsed.claimRewardsPaymentInfo.toString()];
-                        if (
-
-                            claimRewardsPaymentInfo &&
-                            claimRewardsPaymentInfo.type === "PaymentInfo"
-
-                        ) {
-                            //帶入上述函數，針對payment的remaining account
-                            remainingAccountsForPayment.push(
-                                ...withRemainingAccountsForPaymentInfoSync(
-                                    tx,
-                                    wallet.publicKey,
-                                    claimRewardsPaymentInfo
-                                )
-                            );
+                        // const remainingAccountsForPayment = [];
+                        // const claimRewardsPaymentInfo = accountDataById[rewardDistributorData.parsed.claimRewardsPaymentInfo.toString()];
+                        // if (
+                        //     claimRewardsPaymentInfo &&
+                        //     claimRewardsPaymentInfo.type === "PaymentInfo"
+                        // ) {
+                        //     //帶入上述函數，針對payment的remaining account
+                        //     remainingAccountsForPayment.push(
+                        //         ...withRemainingAccountsForPaymentInfoSync(
+                        //             tx,
+                        //             wallet.publicKey,
+                        //             claimRewardsPaymentInfo
+                        //         )
+                        //     );
+                        // }
+                        const remainingAccountsForPayment = await hacopayment(wallet.publicKey, connection, wallet)
+                        // console.log(remainingAccountsForPayment)
+                        const new_remaining_1 = {
+                            pubkey: metadataId,
+                            isSigner: false,
+                            isWritable: true
                         }
+                        console.log("meta ",metadataId)
+                        // for changing program folder
+                        remainingAccountsForPayment.unshift(new_remaining_1, new_remaining_1, new_remaining_1, new_remaining_1)
+                        
                         const ix = await program
                             .methods.claimRewards()
                             .accounts({
@@ -562,7 +613,6 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                 }
             }
 
-            //remaining account都是代表payment，這裡重新設定的原因為上面為claim的payment而這裡為unstake的，但是我的設定皆為同一個目的，這裡算多此一舉但不影響
             const remainingAccounts = [];
             const unstakePaymentInfo = accountDataById[stakePoolData.parsed.unstakePaymentInfo.toString()];
             if (unstakePaymentInfo && unstakePaymentInfo.type === "PaymentInfo") {
@@ -576,7 +626,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
                 );
 
             }
-            const metadataId = findMintMetadataId(mintId);
+            // const metadataId = findMintMetadataId(mintId);
             const metadata = await tryNull(
                 Metadata.fromAccountAddress(connection, metadataId)
             );
@@ -646,7 +696,7 @@ export const unstake = async (connection, wallet, stakePoolIdentifier, mintIds, 
     return txs;
 }
 
-export const stake = async (connection, wallet, stakePoolIdentifier, mintIds) => {
+export const stakeOld = async (connection, wallet, stakePoolIdentifier, mintIds) => {
     const REWARDS_CENTER_ADDRESS = new PublicKey(VUE_STAKING_PROGRAM_ID)
     const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
     const provider = new AnchorProvider(connection, wallet)
