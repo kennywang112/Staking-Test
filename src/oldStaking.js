@@ -4,7 +4,9 @@ import {
     PublicKey,
     SystemProgram,
     SYSVAR_INSTRUCTIONS_PUBKEY,
-    ComputeBudgetProgram
+    ComputeBudgetProgram,
+    TransactionMessage,
+    VersionedTransaction
 } from '@solana/web3.js';
 import {
     fetchIdlAccount,
@@ -22,8 +24,8 @@ import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, createAssociatedTokenA
 import { AnchorProvider, Program } from "@project-serum/anchor";
 import BN from "bn.js";
 
-const VUE_STAKING_PROGRAM_ID = new PublicKey("An63Hmi2dsQxybVhxRvoXHKRM1qeruYF3J9cEmrBSjsM");
-const paymentidentifier = "2";
+const VUE_STAKING_PROGRAM_ID = new PublicKey("ErbSL4EyyTrYPoVeUrs7VPpcf2LBS7mWbSv4ivv538hA");
+const paymentidentifier = "test-2";
 //函數會要求提供payment info的資料，payment及目的
 function withRemainingAccountsForPaymentInfoSync(transaction, payer, paymentInfoData) {
 
@@ -559,31 +561,354 @@ export const unstakeOld = async (connection, wallet, stakePoolIdentifier, mintId
                             tx.add(ix);
 
                         }
-                        // const remainingAccountsForPayment = [];
-                        // const claimRewardsPaymentInfo = accountDataById[rewardDistributorData.parsed.claimRewardsPaymentInfo.toString()];
-                        // if (
-                        //     claimRewardsPaymentInfo &&
-                        //     claimRewardsPaymentInfo.type === "PaymentInfo"
-                        // ) {
-                        //     //帶入上述函數，針對payment的remaining account
-                        //     remainingAccountsForPayment.push(
-                        //         ...withRemainingAccountsForPaymentInfoSync(
-                        //             tx,
-                        //             wallet.publicKey,
-                        //             claimRewardsPaymentInfo
-                        //         )
-                        //     );
-                        // }
+                        const remainingAccountsForPayment = [];
+                        const claimRewardsPaymentInfo = accountDataById[rewardDistributorData.parsed.claimRewardsPaymentInfo.toString()];
+                        if (
+                            claimRewardsPaymentInfo &&
+                            claimRewardsPaymentInfo.type === "PaymentInfo"
+                        ) {
+                            //帶入上述函數，針對payment的remaining account
+                            remainingAccountsForPayment.push(
+                                ...withRemainingAccountsForPaymentInfoSync(
+                                    tx,
+                                    wallet.publicKey,
+                                    claimRewardsPaymentInfo
+                                )
+                            );
+                        }
+                        console.log(remainingAccountsForPayment)
+ 
+                        const ix = await program
+                            .methods.claimRewards()
+                            .accounts({
+                                rewardEntry: PublicKey.findProgramAddressSync(
+                                    [
+                                        utils.bytes.utf8.encode("reward-entry"),
+                                        rewardDistributorId.toBuffer(),
+                                        stakeEntryId.toBuffer(),
+                                    ],
+                                    REWARDS_CENTER_ADDRESS
+                                )[0],
+                                rewardDistributor: rewardDistributorId,
+                                stakeEntry: stakeEntryId,
+                                stakePool: stakePoolId,
+                                rewardMint: rewardMint,
+                                userRewardMintTokenAccount: userRewardMintTokenAccount,
+                                rewardDistributorTokenAccount: rewardDistributorTokenAccount,
+                                user: wallet.publicKey,
+                                tokenProgram: TOKEN_PROGRAM_ID,
+                                systemProgram: SystemProgram.programId
+                            })
+                            .remainingAccounts(remainingAccountsForPayment)//remainingAccounts目前為止都是為了放入payment而新增的
+                            .instruction();
+                        tx.add(ix);
+                    }
+                }
+            }
+
+            const remainingAccounts = [];
+            const unstakePaymentInfo = accountDataById[stakePoolData.parsed.unstakePaymentInfo.toString()];
+            if (unstakePaymentInfo && unstakePaymentInfo.type === "PaymentInfo") {
+
+                remainingAccounts.push(
+                    ...withRemainingAccountsForPaymentInfoSync(
+                        tx,
+                        wallet.publicKey,
+                        unstakePaymentInfo
+                    )
+                );
+
+            }
+            // const metadataId = findMintMetadataId(mintId);
+            const metadata = await tryNull(
+                Metadata.fromAccountAddress(connection, metadataId)
+            );
+            //unstake從這裡開始寫
+            const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+            const editionId = PublicKey.findProgramAddressSync(
+                [
+                    utils.bytes.utf8.encode("metadata"),
+                    METADATA_PROGRAM_ID.toBuffer(),
+                    mintId.toBuffer(),
+                    utils.bytes.utf8.encode("edition"),
+                ],
+                METADATA_PROGRAM_ID
+            )[0];
+            if (metadata?.programmableConfig) {
+
+                const stakeTokenRecordAccountId = findTokenRecordId(mintId, userAtaId);
+                tx.add(
+                    ComputeBudgetProgram.setComputeUnitLimit({
+                        units: 100000000,
+                    })
+                );
+                const unstakeIx = await program
+                    .methods.unstakePnft()
+                    .accountsStrict({
+                        stakePool: stakePoolId,
+                        stakeEntry: stakeEntryId,
+                        stakeMint: mintId,
+                        stakeMintMetadata: metadataId,
+                        stakeMintEdition: editionId,
+                        stakeTokenRecordAccount: stakeTokenRecordAccountId,
+                        authorizationRules:
+                            metadata?.programmableConfig?.ruleSet ?? METADATA_PROGRAM_ID,
+                        user: wallet.publicKey,
+                        userEscrow: userEscrowId,
+                        userStakeMintTokenAccount: userAtaId,
+                        tokenMetadataProgram: METADATA_PROGRAM_ID,
+                        sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                        authorizationRulesProgram: TOKEN_AUTH_RULES_ID,
+                    })
+                    .remainingAccounts(remainingAccounts)
+                    .instruction();
+                tx.add(unstakeIx);
+            } else {
+
+                const unstakeIx = await program
+                .methods.unstakeEdition()
+                .accounts({
+                  stakeEntry: stakeEntryId,
+                  stakePool: stakePoolId,
+                  stakeMint: mintId,
+                  stakeMintEdition: editionId,
+                  user: wallet.publicKey,
+                  userEscrow: userEscrowId,
+                  userStakeMintTokenAccount: userAtaId,
+                  tokenMetadataProgram: METADATA_PROGRAM_ID,
+                })
+                .remainingAccounts(remainingAccounts)
+                .instruction();
+              tx.add(unstakeIx);
+            }
+            txs.push(tx);
+        }
+    }
+    return txs;
+}
+
+export const unstakeOldtoNew = async (connection, wallet, stakePoolIdentifier, mintIds, rewardDistributorIds, userattribute) => {
+
+    const provider = new AnchorProvider(connection, wallet)
+    const stakingprogram = new PublicKey(VUE_STAKING_PROGRAM_ID);
+    const idl = await Program.fetchIdl(stakingprogram, provider);
+    const program = new Program(idl, stakingprogram, provider);
+    const REWARDS_CENTER_ADDRESS = new PublicKey(VUE_STAKING_PROGRAM_ID)
+    const stakePoolId = PublicKey.findProgramAddressSync(
+        [
+            utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
+            utils.bytes.utf8.encode(stakePoolIdentifier), // ix.identifier.as_ref()
+        ],
+        new PublicKey(VUE_STAKING_PROGRAM_ID) // REWARDS_CENTER_ADDRESS
+    )[0];
+
+    const txs = [];
+    for (const mintId of mintIds) {
+
+        //同上claimreward函數內容mints的建立方式
+        const mints = mintIds.map(({ mintId, fungible }) => {
+            const stakeEntryId = PublicKey.findProgramAddressSync(
+                [
+                    utils.bytes.utf8.encode("stake-entry"),
+                    stakePoolId.toBuffer(),
+                    mintId.toBuffer(),
+                    PublicKey.default.toBuffer(),
+                ],
+                new PublicKey(VUE_STAKING_PROGRAM_ID)
+            )[0];
+            return {
+                mintId,
+                stakeEntryId,
+                rewardEntryIds: rewardDistributorIds?.map((rewardDistributorId) =>
+                    PublicKey.findProgramAddressSync(
+                        [
+                            utils.bytes.utf8.encode("reward-entry"),
+                            rewardDistributorId.toBuffer(),
+                            stakeEntryId.toBuffer(),
+                        ],
+                        REWARDS_CENTER_ADDRESS
+                    )[0]
+                ),
+            };
+        });
+        const distributor = await fetchIdlAccountDataById(
+            connection,
+            [rewardDistributorIds[0]],
+            new PublicKey(VUE_STAKING_PROGRAM_ID),
+            idl
+        )
+
+        let accountDataById = await fetchIdlAccountDataById(connection, [
+            stakePoolId,
+            ...mints.map((m) => m.rewardEntryIds ?? []).flat(),
+            ...mints.map((m) => findMintManagerId(m.mintId)),
+            ...mints.map((m) => m.stakeEntryId),
+        ],
+            //需要明確指定是哪個program以及idl
+            new PublicKey(VUE_STAKING_PROGRAM_ID),
+            idl
+        );
+
+        const stakePool = await fetchIdlAccountDataById(
+            connection,
+            [stakePoolId],
+            // fetchIdlAccountDataById都需注意下列兩行
+            new PublicKey(VUE_STAKING_PROGRAM_ID),
+            idl
+        )
+
+        const stakePoolData = stakePool[Object.keys(stakePool)[0]]//針對所有fetchIdlAccountDataById獲取的資料處理
+        if (!stakePoolData?.parsed || stakePoolData.type !== "StakePool") {
+            throw "Stake pool not found";
+        }
+
+        const reward = await fetchIdlAccountDataById(
+            connection,
+            [rewardDistributorIds[0]],
+            new PublicKey(VUE_STAKING_PROGRAM_ID),
+            idl
+        )
+
+        //獲取獎勵的payment
+        const claimRewardsPaymentInfoIds = rewardDistributorIds?.map((id) => {
+            const rewardDistributorData = reward[rewardDistributorIds[0]];
+            if (
+                rewardDistributorData &&
+                rewardDistributorData.type === "RewardDistributor"
+            ) {
+                return rewardDistributorData.parsed.claimRewardsPaymentInfo;
+            }
+            return null;
+        });
+        const accountDataById2 = await fetchIdlAccountDataById(connection, [
+            stakePoolData.parsed.unstakePaymentInfo,
+            ...(claimRewardsPaymentInfoIds ?? [])
+        ],
+            new PublicKey(VUE_STAKING_PROGRAM_ID),
+            idl
+        );
+        const distributorKey = Object.keys(distributor)[0];
+        accountDataById = { ...accountDataById, ...accountDataById2, ...distributor };
+        for (const { mintId, stakeEntryId, rewardEntryIds } of mints) {
+            const metadataId = findMintMetadataId(mintId); //v2
+
+            const tx = new Transaction();
+            const userEscrowId = PublicKey.findProgramAddressSync(
+                [
+                    utils.bytes.utf8.encode("escrow"),
+                    wallet.publicKey.toBuffer()
+                ],
+                REWARDS_CENTER_ADDRESS
+            )[0];
+            const userAtaId = getAssociatedTokenAddressSync(mintId, wallet.publicKey);
+            const stakeEntry = accountDataById[stakeEntryId.toString()];
+            if (
+                rewardEntryIds &&
+                rewardDistributorIds &&
+                rewardDistributorIds.length > 0 &&
+                !(
+                    stakeEntry?.type === "StakeEntry" &&
+                    stakeEntry.parsed.cooldownStartSeconds
+                )
+            ) {
+                //新增stake總時長
+                const ix = await program
+                    .methods.updateTotalStakeSeconds()
+                    .accounts({
+                        stakeEntry: stakeEntryId,
+                        updater: wallet.publicKey,
+                    })
+                    .instruction();
+                tx.add(ix);
+
+                //由於輸入的reward可包含多個公鑰，這裡會各別處理，但是正常來說只會有一個因為不會跨池(rewardDistributorIds的變量是由stakePoolId及program判斷的)
+                for (let j = 0; j < rewardDistributorIds.length; j++) {
+
+                    const rewardDistributorId = rewardDistributorIds[j];
+                    const rewardDistributorData = accountDataById[rewardDistributorId.toString()];
+                    const rewardEntryId = rewardEntryIds[j];
+                    if (
+                        rewardEntryId &&
+                        rewardDistributorData &&
+                        rewardDistributorData.type === "RewardDistributor"
+                    ) {
+                        const rewardMint = rewardDistributorData.parsed.rewardMint;
+                        const rewardEntry = accountDataById[rewardEntryId?.toString()];
+                        //在transfer時所需的mint & owner ATA 以及 mint & receiver ATA 
+                        const rewardDistributorTokenAccount = getAssociatedTokenAddressSync(
+                            rewardMint,
+                            rewardDistributorId,
+                            true
+                        );
+                        const userRewardMintTokenAccount = getAssociatedTokenAddressSync(
+                            rewardMint,
+                            wallet.publicKey,
+                            true
+                        );
+                        //unstake同時包含claim reward所以還是需要判斷entry是否已經初始化
+                        if (!rewardEntry) {
+
+                            const ix = await program
+                                .methods.initRewardEntry()
+                                .accounts({
+                                    rewardEntry: PublicKey.findProgramAddressSync(
+                                        [
+                                            utils.bytes.utf8.encode("reward-entry"),
+                                            rewardDistributorId.toBuffer(),
+                                            stakeEntryId.toBuffer(),
+                                        ],
+                                        REWARDS_CENTER_ADDRESS
+                                    )[0],
+                                    rewardDistributor: rewardDistributorId,
+                                    stakeEntry: stakeEntryId,
+                                    payer: wallet.publicKey,
+                                })
+                                .instruction();
+                            tx.add(ix);
+
+                        }
+                        const collectionMulId = PublicKey.findProgramAddressSync(
+                            [
+                                utils.bytes.utf8.encode('collection-mul'),
+                                utils.bytes.utf8.encode(stakePoolIdentifier),
+                            ],
+                            REWARDS_CENTER_ADDRESS
+                        )[0];
+                        const attributeMulId = PublicKey.findProgramAddressSync(
+                            [
+                                utils.bytes.utf8.encode('attribute-mul'),
+                                utils.bytes.utf8.encode(stakePoolIdentifier),
+                            ],
+                            REWARDS_CENTER_ADDRESS
+                        )[0];
                         const remainingAccountsForPayment = await hacopayment(wallet.publicKey, connection, wallet)
-                        // console.log(remainingAccountsForPayment)
                         const new_remaining_1 = {
                             pubkey: metadataId,
                             isSigner: false,
                             isWritable: true
                         }
-                        console.log("meta ",metadataId)
+                        const new_remaining_2 = {
+                            pubkey: collectionMulId,
+                            isSigner: false,
+                            isWritable: false                       
+                        }
+                        const new_remaining_3 = {
+                            pubkey: attributeMulId,
+                            isSigner: false,
+                            isWritable: false                       
+                        }
+                        const new_remaining_4 = {
+                            pubkey: userattribute,
+                            isSigner: false,
+                            isWritable: false                       
+                        }
+                        // const remainingAccountsForPayment = await hacopayment(wallet.publicKey, connection, wallet)
+                        remainingAccountsForPayment.unshift(new_remaining_1, new_remaining_2, new_remaining_3, new_remaining_4)
+
                         // for changing program folder
-                        remainingAccountsForPayment.unshift(new_remaining_1, new_remaining_1, new_remaining_1, new_remaining_1)
+                        // remainingAccountsForPayment.unshift(new_remaining_1, new_remaining_1, new_remaining_1, new_remaining_1)
                         
                         const ix = await program
                             .methods.claimRewards()
@@ -697,12 +1022,18 @@ export const unstakeOld = async (connection, wallet, stakePoolIdentifier, mintId
 }
 
 export const stakeOld = async (connection, wallet, stakePoolIdentifier, mintIds) => {
+
     const REWARDS_CENTER_ADDRESS = new PublicKey(VUE_STAKING_PROGRAM_ID)
     const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
     const provider = new AnchorProvider(connection, wallet)
     const stakingprogram = new PublicKey(VUE_STAKING_PROGRAM_ID);
     const idl = await Program.fetchIdl(stakingprogram, provider);
     const program = new Program(idl, stakingprogram, provider);
+
+    const lookupTableAddress = new PublicKey("7iEQSaYZt71fPiHE6KJ8m1YTHwbftxjfqnA2GERuhtQ4")
+    const lookupTableAccount = (await connection.getAddressLookupTable(lookupTableAddress));
+    let latestBlockhash = await connection.getLatestBlockhash('finalized');
+
     const stakePoolId = PublicKey.findProgramAddressSync(
         [
             utils.bytes.utf8.encode('stake-pool'),// STAKE_POOL_PREFIX.as_bytes()
@@ -732,7 +1063,6 @@ export const stakeOld = async (connection, wallet, stakePoolIdentifier, mintIds)
                 };
             }
         );
-        console.log(mints)
 
         //建立accountDataById，包含上述建立mints裡id的所有資料
         const accountDataById = await fetchIdlAccountDataById(connection, [
@@ -751,7 +1081,7 @@ export const stakeOld = async (connection, wallet, stakePoolIdentifier, mintIds)
         if (!stakePoolData?.parsed || stakePoolData.type !== "StakePool") {
             throw "Stake pool not found";
         }
-
+        console.log('before fetch stakePoolData: ', stakePoolData)
         //獲取該池的payment資料
         const stakePaymentInfoData = await fetchIdlAccount(
             connection,
@@ -759,9 +1089,12 @@ export const stakeOld = async (connection, wallet, stakePoolIdentifier, mintIds)
             "PaymentInfo",
             idl
         );
+        console.log('after: ', stakePaymentInfoData)
 
         //開始對上面mints裡的所有資料進行判斷，皆為獲取stake pnft所需要的公鑰
         for (const { mintId, mintTokenAccountId, stakeEntryId } of mints) {
+
+            console.log('for in mints: ', mints)
 
             const tx = new Transaction();
             const metadataId = findMintMetadataId(mintId);
@@ -817,11 +1150,6 @@ export const stakeOld = async (connection, wallet, stakePoolIdentifier, mintIds)
             const stakeTokenRecordAccountId = findTokenRecordId(
                 mintId,
                 mintTokenAccountId
-            );
-            tx.add(
-                ComputeBudgetProgram.setComputeUnitLimit({
-                    units: 100000000,
-                })
             );
             if (metadataInfo && metadataInfo.programmableConfig) {
 
@@ -881,7 +1209,16 @@ export const stakeOld = async (connection, wallet, stakePoolIdentifier, mintIds)
             txs.push(tx);
         }
     }
-    return txs;
+
+    const messageWithLookupTable = new TransactionMessage({
+        payerKey: wallet.publicKey,
+        recentBlockhash: latestBlockhash.blockhash,
+        instructions: txs[0].instructions
+    }).compileToV0Message([lookupTableAccount.value]);
+
+    const transactionWithLookupTable = new VersionedTransaction(messageWithLookupTable);
+
+    return transactionWithLookupTable;
 }
 
 export const remainingAccountsForAuthorization = (

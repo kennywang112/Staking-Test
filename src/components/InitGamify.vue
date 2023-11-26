@@ -203,22 +203,22 @@ async function InitAttributeMul () {
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
     const ix = await program.methods
-    .initAttributeMul({
-      attributeMultiply: [[col_1.toString(), 'char', '謀略者']],
-      multiplyData: [
-        [16, 10],
-      ],
-      identifier: stakePoolIdentifier,
-      authority: provider.wallet.publicKey
-    })
-    .accounts({
-      attributeMul: attributeMulId,
-      stakePool: stakePoolId,
-      owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
-      payer: provider.wallet.publicKey,
-      systemProgram: SystemProgram.programId,
-    })
-    .instruction();
+        .initAttributeMul({
+            attributeMultiply: [[col_1.toString(), 'char', '謀略者']],
+            multiplyData: [
+                [16, 10],
+            ],
+            identifier: stakePoolIdentifier,
+            authority: provider.wallet.publicKey
+        })
+        .accounts({
+            attributeMul: attributeMulId,
+            stakePool: stakePoolId,
+            owner: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
+            payer: provider.wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+        })
+        .instruction();
 
     tx.add(ix)
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value)
@@ -228,28 +228,29 @@ async function InitPayment () {
 
     const program = new anchor.Program(await idl, REWARDS_CENTER_ADDRESS, provider);
     const tx = new Transaction();
-    // const ix = await program.methods
-    //     .initPaymentInfo({
-    //         authority: wallet.publicKey,
-    //         identifier: "TTGG",
-    //         paymentAmount: new BN(200_000),
-    //         paymentMint: PublicKey.default,
-    //         paymentShares: [
-    //             {
-    //             address: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
-    //             basisPoints: 10000,
-    //             },
-    //         ],
-    //     })
-    //     .accounts({ 
-    //         paymentInfo: paymentInfoId, 
-    //         payer: wallet.publicKey ,
-    //         systemProgram: SystemProgram.programId})
-    //     .instruction();
-    const ix = await program.methods
+    const init_ix = await program.methods
+        .initPaymentInfo({
+            authority: wallet.publicKey,
+            identifier: "TTGG",
+            paymentAmount: new BN(200_000),
+            paymentMint: PublicKey.default,
+            paymentShares: [
+                {
+                address: new PublicKey("Se9gzT3Ep3E452LPyYaWKYqcCvsAwtHhRQwQvmoXFxG"),
+                basisPoints: 10000,
+                },
+            ],
+        })
+        .accounts({ 
+            paymentInfo: paymentInfoId, 
+            payer: wallet.publicKey ,
+            systemProgram: SystemProgram.programId})
+        .instruction();
+
+    const update_ix = await program.methods
         .updatePaymentInfo({
             authority: wallet.publicKey,
-            paymentAmount: new BN(2_000_000),
+            paymentAmount: new BN(20_000_000),
             paymentMint: PublicKey.default,
             paymentShares: [
                 {
@@ -265,7 +266,7 @@ async function InitPayment () {
             systemProgram: SystemProgram.programId})
         .instruction();
 
-    tx.add(ix)
+    tx.add(init_ix)
     await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 
     console.log('payment info id :',paymentInfoId.toString())
@@ -402,7 +403,7 @@ async function InitConfig () {
     const program = new anchor.Program(idl, REWARDS_CENTER_ADDRESS, provider);
     // Config Info
     const config = {
-        name: "namenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamename",
+        name: "ddd",
         displayName: "display",
         description: "description",
         imageUrl: "image_url",
@@ -429,27 +430,46 @@ async function InitConfig () {
     ).map((chunk) => chunk.join(''))
 
     const tx = new Transaction();
-    const ix = await program.methods
-    .initConfigEntry({
-        prefix: Buffer.from(""),
-        key: Buffer.from(stakePoolIdentifier),
-        value: configChunks[0],
-        extends: [],
-    })
-    .accountsStrict({
-        configEntry: configEntryId,
-        authority: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-    })
-    .remainingAccounts([
-        {
-            pubkey: new PublicKey(stakePoolId),
-            isSigner: false,
-            isWritable: false,
-        },
-    ])
-    .instruction();
-    tx.add(ix);
+    const init_ix = await program.methods
+        .initConfigEntry({
+            prefix: Buffer.from(""),
+            key: Buffer.from(stakePoolIdentifier),
+            value: configChunks[0],
+            extends: [],
+        })
+        .accountsStrict({
+            configEntry: configEntryId,
+            authority: provider.wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+        })
+        .remainingAccounts([
+            {
+                pubkey: new PublicKey(stakePoolId),
+                isSigner: false,
+                isWritable: false,
+            },
+        ])
+        .instruction();
+    const updateIx = await program.methods
+        .updateConfigEntry({
+            value: configChunks[0],
+            extends: [],
+            append: true,
+        })
+        .accountsStrict({
+            configEntry: configEntryId,
+            authority: wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+        })
+        .remainingAccounts([
+            {
+                pubkey: new PublicKey("JCMeeppVifrJ2Npy8h2KbrmFGM4m1CU1bkMieJL67rGg"),
+                isSigner: false,
+                isWritable: false,
+            },
+        ])
+        .instruction()
+    tx.add(updateIx);
 
     const exec = await executeTransaction(provider.connection, tx, provider.wallet.wallet.value);
 

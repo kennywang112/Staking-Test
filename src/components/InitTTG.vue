@@ -153,7 +153,7 @@ async function InitPayment () {
         .initPaymentInfo({
             authority: wallet.publicKey,
             identifier: hacoIdentifier,
-            paymentAmount: new BN(200000),
+            paymentAmount: new BN(20_000_000),
             paymentMint: PublicKey.default,
             paymentShares: [
                 {
